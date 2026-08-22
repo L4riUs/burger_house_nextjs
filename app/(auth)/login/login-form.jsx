@@ -47,7 +47,7 @@ export function LoginForm() {
         <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-orange-500/20 blur-[80px]"></div>
         
         <div className="relative z-10 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 text-white shadow-lg shadow-orange-500/30">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-orange-400 to-orange-600 text-white shadow-lg shadow-orange-500/30">
             <FlameIcon className="h-6 w-6" />
           </div>
           <span className="text-xl font-black tracking-tight text-white uppercase">Burger House</span>
@@ -146,7 +146,7 @@ export function LoginForm() {
               disabled={loading}
               className="group relative w-full h-12 overflow-hidden rounded-xl bg-orange-600 text-white font-bold transition-all hover:bg-orange-500"
             >
-              <div className="absolute inset-0 flex h-full w-full justify-center [transform:skew(-12deg)_translateX(-150%)] group-hover:duration-1000 group-hover:[transform:skew(-12deg)_translateX(150%)]">
+              <div className="absolute inset-0 flex h-full w-full justify-center transform-[skew(-12deg)_translateX(-150%)] group-hover:duration-1000 group-hover:transform-[skew(-12deg)_translateX(150%)]">
                 <div className="relative h-full w-8 bg-white/20" />
               </div>
               <span className="flex items-center gap-2">
