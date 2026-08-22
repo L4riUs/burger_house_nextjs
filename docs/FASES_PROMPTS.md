@@ -396,7 +396,21 @@ Alcance:
    'completed'. Accesible por rol 'delivery'.
 8. Seguimiento de pedido para el cliente (parte de RF-08.4): página simple
    donde el cliente ve el estado actual de su orden en tiempo real.
-9. Pruebas unitarias (esto es obligatorio y crítico, según AGENTS.md toda
+9. **Toma de pedidos internos** (SRS RF-09.6): interfaz interna de "Nueva
+   orden" (features/orders/pos/) para que mesero/cajero/admin/owner registren
+   un pedido en nombre de un cliente presente en el mostrador o que hizo su
+   pedido por teléfono/WhatsApp/mensaje. IMPORTANTE: esto NO es un flujo de
+   creación de orden distinto al del checkout de la Fase 5 — es la MISMA
+   función de servidor (createOrder) reutilizada desde una UI distinta,
+   pensada para velocidad de staff: buscador de productos con resultados
+   instantáneos, agregar al pedido con un clic, selector rápido de
+   channel ('pos' si el cliente está presente, 'phone' si se tomó a
+   distancia), y de guest_customer o profile existente (buscar por
+   teléfono/nombre, o crear uno nuevo sin salir de la pantalla). Guarda
+   taken_by = usuario actual. Si reescribes o duplicas la lógica de creación
+   de orden en vez de reusar la de la Fase 5/checkout, está mal hecho:
+   refactoriza para que ambos flujos llamen a la misma función.
+10. Pruebas unitarias (esto es obligatorio y crítico, según AGENTS.md toda
    lógica de negocio no trivial lleva tests):
    - todas las transiciones válidas e inválidas de la máquina de estados.
    - el cálculo de movimientos de inventario a generar dado un order_item con
@@ -406,13 +420,21 @@ Alcance:
    - el caso de "tomar entrega" concurrente (simula que la fila ya tiene
      delivery_profile_id asignado y verifica que la función de servidor lo
      rechaza).
+   - la interfaz de toma de pedidos internos (punto 9) crea órdenes con
+     channel/taken_by correctos y reusa la misma función de creación que el
+     checkout (si escribiste un test de creación de orden para el checkout
+     en la Fase 5, este debería poder reusar el mismo caso de prueba
+     apuntando a la función compartida, no a una copia).
 
 Plan mode primero — en particular quiero ver cómo vas a estructurar la
-transacción del punto 3 antes de que escribas código. Espera mi confirmación.
+transacción del punto 3 y cómo vas a compartir la función de creación de
+orden entre el checkout público y la interfaz interna del punto 9, antes de
+que escribas código. Espera mi confirmación.
 
 Resumen final: flujo completo de prueba manual desde crear una orden en el
 storefront hasta marcarla completed, pasando por cocina y delivery, con los
-comandos/pasos exactos para verificarlo.
+comandos/pasos exactos para verificarlo, y también el flujo de tomar un
+pedido de mostrador y uno de teléfono desde la interfaz interna.
 ```
 
 **Criterios de aceptación:**
@@ -420,6 +442,104 @@ comandos/pasos exactos para verificarlo.
 - Confirmar una orden descuenta inventario real, verificable en el Kardex de la Fase 3.
 - Dos repartidores no pueden tomar la misma orden de delivery.
 - Cocina y Delivery se actualizan solas (Realtime), sin recargar la página.
+- El checkout público y la interfaz interna de "Nueva orden" (mostrador/teléfono) usan la misma función de creación de orden — no hay dos implementaciones paralelas.
+
+---
+
+## Fase 9 — Modo offline para la toma de pedidos internos
+
+**Corresponde a:** SRS RNF-12, regla RB-07. Depende de la Fase 6 (toma de pedidos internos ya debe existir y funcionar online).
+
+### Prompt Fase 9
+
+```
+Fase 9: Modo offline para la toma de pedidos internos (SRS RNF-12, regla
+RB-07 en docs/SRS_BurgerHouse.md). Depende de que la interfaz de "Nueva
+orden" de la Fase 6 (punto 9) ya funcione online.
+
+Lee primero el alcance explícito de RNF-12: esto NO es "modo offline para
+todo el sistema". Es específicamente para que el mostrador no pierda una
+venta si se corta internet mientras se está tomando el pedido. Cosas que
+DELIBERADAMENTE se quedan fuera de esta fase (ya están justificadas en el
+SRS, no las implementes):
+- Validación o descuento de inventario offline.
+- Apertura/cierre de caja offline.
+- Cualquier cosa del storefront público.
+
+Alcance:
+1. Crea `lib/offline-queue.js`: módulo centralizado (mismo principio que
+   lib/storage.js, pero usando IndexedDB en vez de localStorage porque el
+   volumen de datos de una cola de pedidos con sus ítems no es apto para
+   localStorage). Usa una librería ligera para IndexedDB (por ejemplo `idb`)
+   en vez de la API nativa a mano — justifica en tu resumen por qué elegiste
+   esa librería. La cola guarda: el payload completo del pedido (igual al
+   que usa createOrder de la Fase 6), un client_ref (uuid generado en el
+   dispositivo), estado local ('pending_sync', 'synced', 'conflict'), y
+   timestamp de creación.
+2. Detección de conectividad: usa `navigator.onLine` + listeners de
+   'online'/'offline' del navegador para decidir si un pedido nuevo se envía
+   directo al servidor o se encola. No implementes Service Worker con
+   Background Sync API (soporte inconsistente entre navegadores, en
+   particular Safari) — el enfoque de detectar el evento 'online' y disparar
+   la sincronización desde la propia pestaña abierta es suficiente para el
+   caso de uso de un mostrador con la app siempre abierta en una tablet/PC.
+   Documenta esta decisión en tu resumen.
+3. Modifica la interfaz de "Nueva orden" (Fase 6, punto 9) para que:
+   - Si hay conexión: funciona exactamente igual que antes (llamada directa
+     al servidor).
+   - Si no hay conexión: guarda el pedido en la cola local con
+     client_ref nuevo, muestra confirmación inmediata al staff ("Pedido
+     guardado, se sincronizará cuando vuelva la conexión") y lo agrega a una
+     lista visible de "Pedidos pendientes de sincronizar" (contador visible
+     en la barra de navegación del panel de Órdenes).
+4. Sincronización automática: al detectar el evento 'online', recorrer la
+   cola en orden y llamar a la misma función createOrder de la Fase 6 para
+   cada pedido pendiente, pasando su client_ref. El server action de
+   createOrder debe ser idempotente respecto a client_ref (RB-07): si ya
+   existe una orden con ese client_ref, no la duplica, simplemente confirma
+   que ya está sincronizada. Si el servidor devuelve un error real (ej. un
+   producto referenciado ya no existe o fue desactivado), marca ese pedido
+   local como 'conflict' en vez de perderlo o reintentarlo indefinidamente.
+5. Botón de "Sincronizar ahora" manual, además de la sincronización
+   automática al reconectar (para cuando el staff quiere forzarlo sin
+   esperar).
+6. Pantalla de "Pedidos pendientes/con conflicto": lista los pedidos en
+   estado 'pending_sync' y 'conflict' de la cola local, con la posibilidad de
+   ver el detalle y, en caso de conflicto, editarlo manualmente antes de
+   reintentar (por ejemplo, quitar el producto que ya no existe) o
+   descartarlo explícitamente (acción consciente del staff, nunca automática).
+7. Un pedido en la cola local ('pending_sync') NO debe aparecer todavía en
+   el panel de Órdenes general, Cocina, Delivery, ni afectar caja o
+   inventario — solo existe "de verdad" para el resto del sistema una vez
+   que sincronizó y quedó creado en `orders`. Dejar esto muy claro en la UI
+   para que el staff no piense que ya se procesó.
+8. Pruebas unitarias:
+   - la cola offline: agregar, listar pendientes, marcar como sincronizado,
+     marcar como conflicto.
+   - la idempotencia de sincronización: simula llamar dos veces a
+     createOrder con el mismo client_ref y verifica que la segunda vez no
+     crea una orden duplicada, sino que reconoce la existente.
+   - el flujo completo simulado: pedido creado offline -> evento 'online' ->
+     se sincroniza -> desaparece de "pendientes" y aparece en el panel de
+     Órdenes normal.
+
+Plan mode primero. En particular, muéstrame cómo vas a estructurar la
+idempotencia en el server action de createOrder (debe funcionar igual sea
+que la orden venga de la Fase 6 online, o de esta cola offline — es la misma
+función, solo que a veces recibe un client_ref que ya vio antes). Espera mi
+confirmación antes de construir.
+
+Resumen final: cómo simular estar offline en el navegador (DevTools ->
+Network -> Offline), tomar un pedido en ese estado, reconectar, y verificar
+que sincroniza solo. Y cómo forzar un conflicto (por ejemplo, desactivando un
+producto que está en un pedido offline pendiente) para probar ese camino.
+```
+
+**Criterios de aceptación:**
+- Un pedido tomado sin conexión no se pierde: queda visible como "pendiente de sincronizar" y se envía solo al reconectar.
+- Sincronizar el mismo pedido dos veces (por un reintento, por ejemplo) nunca crea una orden duplicada.
+- Un pedido pendiente de sincronizar no afecta caja, inventario, cocina ni delivery hasta que efectivamente se sincroniza.
+- No se implementó modo offline para el storefront público, apertura/cierre de caja, ni descuento de inventario — eso sigue exigiendo conexión, tal como especifica RNF-12.
 
 ---
 
@@ -526,14 +646,14 @@ una nota de crédito sin borrar el original.
 
 ---
 
-## Fase 9 — Dashboard, Reportes y Auditoría
+## Fase 10 — Dashboard, Reportes y Auditoría
 
 **Corresponde a:** SRS RF-16, Transversal Auditoría.
 
-### Prompt Fase 9
+### Prompt Fase 10
 
 ```
-Fase 9: Dashboard, Reportes y Auditoría (SRS RF-16 y sección transversal de
+Fase 10: Dashboard, Reportes y Auditoría (SRS RF-16 y sección transversal de
 Auditoría).
 
 Alcance:
@@ -549,8 +669,9 @@ Alcance:
    filtros por entidad, actor y rango de fecha. Verifica que las fases
    anteriores efectivamente estén insertando en audit_log en sus operaciones
    sensibles (cambio de rol, cambio de estado de orden, movimientos de
-   inventario, apertura/cierre de caja, anulación de factura) — si alguna
-   fase anterior quedó sin auditar algo que debería, complétalo ahora.
+   inventario, apertura/cierre de caja, anulación de factura, resolución
+   manual de un conflicto de sincronización offline de la Fase 9) — si
+   alguna fase anterior quedó sin auditar algo que debería, complétalo ahora.
 4. Pruebas unitarias: funciones de agregación/formateo usadas en el
    dashboard (cálculo de ticket promedio, top N productos a partir de un
    dataset de prueba).
@@ -567,14 +688,14 @@ hay, se dejaron pendientes con justificación.
 
 ---
 
-## Fase 10 — Pulido, rendimiento y caché
+## Fase 11 — Pulido, rendimiento y caché
 
 **Objetivo:** revisar todo el sistema construido en las fases anteriores contra los requisitos no funcionales del SRS (sección 3.3), sin agregar módulos nuevos.
 
-### Prompt Fase 10
+### Prompt Fase 11
 
 ```
-Fase 10: Pulido, rendimiento y caché — revisión final contra los requisitos
+Fase 11: Pulido, rendimiento y caché — revisión final contra los requisitos
 no funcionales del SRS (docs/SRS_BurgerHouse.md sección 3.3). No se agregan
 módulos de negocio nuevos en esta fase.
 
@@ -603,6 +724,11 @@ Alcance:
    confirma que tienen los índices adecuados (ya definidos en
    docs/schema_BurgerHouse.sql, pero verifica planes de consulta si es
    posible).
+6. Revisa RNF-12 (modo offline, Fase 9): confirma que el alcance se respetó
+   estrictamente (solo toma de pedidos internos, nada de inventario/caja/
+   storefront offline), que la cola local nunca deja un pedido "atrapado" sin
+   feedback al staff, y que la idempotencia por client_ref sigue funcionando
+   si se prueba sincronizar el mismo pedido dos veces.
 
 No hace falta plan mode extenso aquí ya que es una revisión, pero antes de
 hacer cambios de código dime qué encontraste y qué vas a corregir, y espera

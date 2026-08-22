@@ -59,6 +59,12 @@ create type currency_code as enum ('VES', 'USD');
 
 create type invoice_type as enum ('invoice', 'credit_note');
 
+-- Origen de la orden (SRS RF-09.6): la misma tabla `orders` sirve para
+-- storefront, mostrador (staff con cliente presente) y pedidos tomados a
+-- distancia (llamada/WhatsApp/etc.). No son módulos distintos, es el mismo
+-- motor con distinta puerta de entrada.
+create type order_channel as enum ('storefront', 'pos', 'phone');
+
 -- ----------------------------------------------------------------------------
 -- Helper genérico: updated_at automático
 -- ----------------------------------------------------------------------------
@@ -383,10 +389,15 @@ create index idx_reservations_table_time on reservations(table_id, reserved_at);
 
 -- RB-05: sin solapamiento de reservas confirmadas en la misma mesa.
 -- Se aplica con exclusion constraint usando rango de tiempo.
+-- 1. Creamos una función auxiliar explícitamente inmutable
+create or replace function calc_reserved_range(r_at timestamptz, d_mins int)
+returns tstzrange language sql immutable as $$
+  select tstzrange(r_at, r_at + (d_mins * interval '1 minute'));
+$$;
+
+-- 2. Usamos la función inmutable en la columna generada
 alter table reservations add column reserved_range tstzrange
-  generated always as (
-    tstzrange(reserved_at, reserved_at + (duration_minutes || ' minutes')::interval)
-  ) stored;
+  generated always as (calc_reserved_range(reserved_at, duration_minutes)) stored;
 
 create extension if not exists btree_gist;
 alter table reservations add constraint excl_reservation_overlap
@@ -431,6 +442,9 @@ create table orders (
   total_usd numeric(14,2) not null default 0,
   payment_method_id uuid references payment_methods(id),
   cash_session_id uuid, -- fk añadida tras crear cash_sessions
+  channel order_channel not null default 'storefront', -- RF-09.6
+  taken_by uuid references profiles(id),   -- staff que la registró (null si channel = storefront)
+  client_ref uuid,       -- id generado en el dispositivo para sync offline idempotente (RB-07)
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -439,8 +453,14 @@ create table orders (
   ),
   constraint chk_order_table check (
     fulfillment_type <> 'dine_in' or table_id is not null
+  ),
+  constraint chk_order_taken_by check (
+    channel = 'storefront' or taken_by is not null
   )
 );
+-- RB-07: idempotencia de sincronización offline — un client_ref no se
+-- duplica nunca (varios NULL sí se permiten, es el caso normal storefront).
+create unique index uq_orders_client_ref on orders(client_ref) where client_ref is not null;
 create trigger trg_orders_updated before update on orders
   for each row execute function set_updated_at();
 create index idx_orders_status on orders(status);
@@ -570,8 +590,15 @@ alter table guest_customers enable row level security;
 alter table audit_log enable row level security;
 
 -- Helper: rol del usuario autenticado actual
+-- SECURITY DEFINER es obligatorio para romper la recursión infinita de RLS:
+-- SELECT profiles → evalúa RLS → llama auth_role() → SELECT profiles → loop
 create or replace function auth_role()
-returns user_role language sql stable as $$
+returns user_role
+language sql
+stable
+security definer
+set search_path = public
+as $$
   select role from profiles where id = auth.uid()
 $$;
 

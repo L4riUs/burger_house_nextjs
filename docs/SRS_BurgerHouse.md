@@ -1,11 +1,18 @@
 # Especificación de Requisitos de Software (SRS)
 ## Sistema de E-commerce y Gestión Administrativa — Burger House
 
-**Versión:** 2.0 (reconstrucción moderna)
+**Versión:** 2.1
 **Basado en:** SRS original v1.0 (IEEE 830, PHP/MySQL) — revisado, depurado y adaptado a stack Next.js/Supabase
 **Convención:** IEEE 830, simplificada para consumo por agente de IA (opencode)
 
 ---
+
+## 0.1 Adenda v2.1
+
+Sobre la v2.0, se incorporan dos requisitos que no estaban explícitos en el SRS original pero son operativamente esenciales para Burger House:
+
+1. **Toma de pedidos internos (mostrador y por teléfono/mensajería).** No todo pedido nace en la tienda en línea: un cliente llega físicamente y pide en el mostrador, o escribe por WhatsApp/Instagram y un mesero/cajero registra el pedido en su nombre. Esto **no es un módulo nuevo**: es el mismo motor de creación de órdenes de RF-09, expuesto también en una interfaz interna para staff, con un campo `channel` para distinguir el origen (`storefront`, `pos`, `phone`) con fines de reporte. Ver RF-09.6.
+2. **Modo offline para la toma de pedidos internos.** Si se corta la conexión en el local, el mostrador debe poder seguir capturando pedidos (no perder la venta), encolándolos localmente y sincronizándolos al recuperar conexión. Ver RNF-12 y RB-07 para el alcance exacto y sus límites (no todo puede funcionar offline con seguridad — se explica por qué).
 
 ## 0. Nota de revisión (v1.0 → v2.0)
 
@@ -90,7 +97,7 @@ Aplicación web full-stack construida en **Next.js (App Router, JavaScript puro 
 6. Proveedores
 7. Inventario — Movimientos de Stock (Kardex)
 8. Tienda en línea — Catálogo público, Carrito y Checkout
-9. Órdenes (unifica pedidos, cocina, delivery)
+9. Órdenes (unifica pedidos, cocina, delivery, toma interna en mostrador/teléfono, y su modo offline)
 10. Mesas
 11. Reservas y Paquetes de Reservación
 12. Caja y Finanzas (sesiones de caja + libro de movimientos financieros)
@@ -188,6 +195,10 @@ Cada módulo se describe con sus operaciones (el CRUD básico se asume implícit
 - RF-09.3 **Vista de Cocina**: lista/kanban de órdenes en estado `confirmed`/`in_kitchen`, con acción de avanzar a `ready`. Accesible por rol `cocina` (y `admin`/`owner`).
 - RF-09.4 **Vista de Delivery**: lista de órdenes `ready` con `fulfillment_type = delivery`, con acción de "tomar entrega" (asigna repartidor, evita doble asignación) y "marcar entregado". Accesible por rol `delivery`.
 - RF-09.5 Cada cambio de estado queda registrado en `order_status_history` (quién, cuándo, de qué estado a qué estado).
+- RF-09.6 **Toma de pedidos internos (mostrador y por teléfono/mensajería):** un miembro del staff con rol `mesero`, `cajero`, `admin` u `owner` puede crear una orden en nombre de un cliente presente físicamente o que hizo su pedido por un canal externo (llamada, WhatsApp, Instagram, etc.), usando el **mismo motor de creación de órdenes** que el storefront (RF-08) a través de una interfaz interna de "nueva orden" con búsqueda rápida de productos por nombre/categoría. No es una lógica distinta a la del checkout público; es otra puerta de entrada a la misma función. Cada orden guarda:
+  - `channel`: `storefront` (la creó el cliente solo), `pos` (staff, cliente presente en mostrador) o `phone` (staff, pedido tomado a distancia).
+  - `taken_by`: el `profile_id` del miembro del staff que la registró (nulo si `channel = storefront`).
+  - Si el cliente que llama/escribe no tiene cuenta, se registra como `guest_customer` igual que un invitado del storefront (RF-15.2); no hace falta crearle una cuenta para tomarle el pedido.
 
 #### RF-10 — Mesas
 - RF-10.1 CRUD de mesas: nombre/número, capacidad, zona, estado (`available`, `occupied`, `reserved`, `out_of_service`).
@@ -248,6 +259,11 @@ Cada módulo se describe con sus operaciones (el CRUD básico se asume implícit
 
 **Portabilidad**
 - RNF-11 Next.js + Supabase, sin dependencias de un proveedor de hosting específico más allá de lo estándar de Next.js/Vercel-compatible y Supabase.
+- RNF-12 **Tolerancia offline en la toma de pedidos internos (RF-09.6).** La interfaz interna de "nueva orden" debe seguir permitiendo capturar un pedido (ítems, cliente/invitado, notas, canal) aunque el dispositivo pierda conexión a internet, encolando el pedido en el dispositivo (IndexedDB, vía un módulo centralizado `lib/offline-queue.js`, siguiendo el mismo principio de centralización que `lib/storage.js`) y sincronizándolo automáticamente al recuperar conexión (con botón de sincronización manual y un indicador visual claro de "pendiente de sincronizar"). **Alcance explícito de lo que NO corre offline**, y por qué:
+  - **No se valida ni descuenta inventario offline** (RB-01 requiere el stock real, que vive en el servidor; validarlo con datos locales desactualizados puede vender algo agotado). El descuento de inventario ocurre recién cuando la orden sincroniza.
+  - **No se abren/cierran sesiones de caja offline** (RB-03 exige una sola sesión abierta; eso solo se puede garantizar con el servidor como árbitro).
+  - **El storefront público no necesita modo offline**: un cliente sin internet no puede navegar ni pagar de todas formas; esta tolerancia es específica del mostrador interno.
+  - Mientras un pedido está en la cola local sin sincronizar, se muestra al staff como "pendiente" y no cuenta todavía para caja, inventario ni cocina — evita que el negocio opere sobre datos que después pueden fallar al sincronizar (ej. un producto que se agotó mientras el dispositivo estaba offline).
 
 ### 3.4 Reglas de negocio críticas (RB)
 
@@ -257,6 +273,7 @@ Cada módulo se describe con sus operaciones (el CRUD básico se asume implícit
 - **RB-04 — Doble moneda:** toda tabla con montos (`orders`, `financial_transactions`, `invoices`) guarda el monto en la moneda de origen **y** la tasa de cambio VES/USD vigente al momento de la operación (snapshot, no recalculado después), para que los reportes históricos no cambien si la tasa cambia mañana.
 - **RB-05 — Reservas sin solapamiento:** ver RF-11.3.
 - **RB-06 — Facturas inmutables:** ver RF-13.3, nunca se edita ni borra una factura emitida.
+- **RB-07 — Sincronización offline idempotente:** toda orden creada en modo offline (RNF-12) recibe un identificador generado en el propio dispositivo (`client_ref`, UUID) antes de tener conexión. Al sincronizar, el servidor es idempotente respecto a ese identificador: si ya existe una orden con ese `client_ref` (por ejemplo, por un reintento automático tras un corte a mitad de la sincronización), no se duplica la orden. Si la sincronización falla por un conflicto real (ej. un producto de la orden fue eliminado o desactivado mientras estaba offline), el pedido queda marcado como "requiere revisión" y se le muestra al staff para resolverlo a mano — nunca se descarta silenciosamente ni se sincroniza a medias.
 
 ---
 
