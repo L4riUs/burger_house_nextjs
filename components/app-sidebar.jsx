@@ -25,6 +25,13 @@ import {
   ClipboardListIcon,
   PackageIcon,
   TableIcon,
+  ArchiveIcon,
+  BoxesIcon,
+  ScaleIcon,
+  Trash2Icon,
+  TruckIcon,
+  ListChecksIcon,
+  FileTextIcon,
 } from "lucide-react";
 import { isOwnerOrAdmin } from "@/features/auth/role-logic";
 
@@ -52,6 +59,16 @@ const NAV_GROUPS = [
       { title: "Reportes", href: "/admin/reports", icon: BarChart3Icon },
     ],
   },
+];
+
+const INVENTORY_SUB_ITEMS = [
+  { title: "Categorías", href: "/admin/inventario/categorias", icon: BoxesIcon },
+  { title: "Unidades", href: "/admin/inventario/unidades", icon: ScaleIcon },
+  { title: "Materias Primas", href: "/admin/inventario/materias-primas", icon: ArchiveIcon },
+  { title: "Proveedores", href: "/admin/proveedores", icon: TruckIcon },
+  { title: "Movimientos", href: "/admin/inventario/movimientos", icon: ListChecksIcon },
+  { title: "Kardex", href: "/admin/inventario/kardex", icon: FileTextIcon },
+  { title: "Papelera", href: "/admin/papelera", icon: Trash2Icon },
 ];
 
 export function AppSidebar({ user, profile, ...props }) {
@@ -114,12 +131,14 @@ export function AppSidebar({ user, profile, ...props }) {
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
-                      render={<Link href={item.href} />}
+                      asChild
                       isActive={isActive}
                       tooltip={item.title}
                     >
-                      <Icon />
-                      <span>{item.title}</span>
+                      <Link href={item.href} className="flex items-center gap-3">
+                        <Icon />
+                        <span>{item.title}</span>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -127,6 +146,32 @@ export function AppSidebar({ user, profile, ...props }) {
             </SidebarMenu>
           </SidebarGroup>
         ))}
+
+        {isOwnerOrAdmin(role) && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Inventario</SidebarGroupLabel>
+            <SidebarMenu>
+              {INVENTORY_SUB_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname.startsWith(item.href);
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={item.title}
+                    >
+                      <Link href={item.href} className="flex items-center gap-3">
+                        <Icon />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter>

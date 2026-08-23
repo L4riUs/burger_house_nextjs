@@ -1,9 +1,10 @@
 "use client";
+
 import * as React from "react"
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
+import { Slot } from "@radix-ui/react-slot"
 import { cva } from "class-variance-authority";
-
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -477,15 +478,21 @@ function SidebarMenuButton({
   size = "default",
   tooltip,
   className,
+  asChild = false,
   ...props
 }) {
   const { isMobile, state } = useSidebar()
+  
+  const baseProps = mergeProps({
+    className: cn(sidebarMenuButtonVariants({ variant, size }), className),
+  }, props)
+
+  const renderContent = !tooltip ? render : <TooltipTrigger render={render} />
+  
   const comp = useRender({
     defaultTagName: "button",
-    props: mergeProps({
-      className: cn(sidebarMenuButtonVariants({ variant, size }), className),
-    }, props),
-    render: !tooltip ? render : <TooltipTrigger render={render} />,
+    props: baseProps,
+    render: renderContent,
     state: {
       slot: "sidebar-menu-button",
       sidebar: "menu-button",
@@ -495,6 +502,9 @@ function SidebarMenuButton({
   })
 
   if (!tooltip) {
+    if (asChild && render) {
+      return <Slot>{render}</Slot>
+    }
     return comp
   }
 
@@ -506,7 +516,7 @@ function SidebarMenuButton({
 
   return (
     <Tooltip>
-      {comp}
+      {asChild && render ? <Slot>{render}</Slot> : comp}
       <TooltipContent
         side="right"
         align="center"

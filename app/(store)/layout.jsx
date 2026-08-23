@@ -1,15 +1,19 @@
+"use client";
+
+import Link from "next/link";
+
 export default function StoreLayout({ children }) {
   return (
     <div className="flex min-h-svh flex-col">
       <header className="border-b">
         <div className="container mx-auto flex h-14 items-center justify-between px-4">
-          <a href="/" className="font-semibold text-lg">
+          <Link href="/" className="font-semibold text-lg">
             Burger House
-          </a>
+          </Link>
           <nav className="flex items-center gap-4">
-            <a href="/login" className="text-sm text-muted-foreground hover:text-foreground">
+            <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground">
               Iniciar Sesión
-            </a>
+            </Link>
           </nav>
         </div>
       </header>
