@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { listTrash, restoreItem } from "../actions";
 import { TrashTable } from "./TrashTable";
@@ -15,6 +16,7 @@ const TABS = [
 ];
 
 export function TrashTabs() {
+  const { toastSuccess, toastError } = useToast();
   const [activeTab, setActiveTab] = useState("all");
   const [trashData, setTrashData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,9 +37,10 @@ export function TrashTabs() {
   const handleRestore = async (entity, id) => {
     const result = await restoreItem(entity, id);
     if (result.error) {
-      alert(result.error);
+      toastError(result.error);
       return;
     }
+    toastSuccess(result.success);
     fetchTrash();
   };
 

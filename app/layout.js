@@ -1,6 +1,7 @@
 import { Geist, Geist_Mono, Roboto } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import NextTopLoader from "nextjs-toploader";
+import { Toaster } from "@/components/ui/toast";
 import "./globals.css";
 
 const roboto = Roboto({
@@ -40,6 +41,7 @@ export default function RootLayout({ children }) {
         >
           <NextTopLoader color="hsl(var(--primary))" height={3} />
           {children}
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

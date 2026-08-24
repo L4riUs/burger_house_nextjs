@@ -32,6 +32,9 @@ import {
   TruckIcon,
   ListChecksIcon,
   FileTextIcon,
+  SandwichIcon,
+  PlusCircleIcon,
+  GiftIcon,
 } from "lucide-react";
 import { isOwnerOrAdmin } from "@/features/auth/role-logic";
 
@@ -65,6 +68,9 @@ const INVENTORY_SUB_ITEMS = [
   { title: "Categorías", href: "/admin/inventario/categorias", icon: BoxesIcon },
   { title: "Unidades", href: "/admin/inventario/unidades", icon: ScaleIcon },
   { title: "Materias Primas", href: "/admin/inventario/materias-primas", icon: ArchiveIcon },
+  { title: "Productos", href: "/admin/productos", icon: SandwichIcon },
+  { title: "Adicionales", href: "/admin/adicionales", icon: PlusCircleIcon },
+  { title: "Combos", href: "/admin/combos", icon: GiftIcon },
   { title: "Proveedores", href: "/admin/proveedores", icon: TruckIcon },
   { title: "Movimientos", href: "/admin/inventario/movimientos", icon: ListChecksIcon },
   { title: "Kardex", href: "/admin/inventario/kardex", icon: FileTextIcon },

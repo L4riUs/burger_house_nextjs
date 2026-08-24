@@ -182,21 +182,19 @@ export function MovementForm({
               const product = products.find(p => p.id === value);
               setSelectedItem(product || null);
             }}
-            disabled={true}
+            disabled={isLoading}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Selecciona un producto (TODO: Fase 4)" />
+              <SelectValue placeholder="Selecciona un producto retail" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="" disabled>Próximamente en Fase 4</SelectItem>
               {products.map((product) => (
-                <SelectItem key={product.id} value={product.id} disabled>
+                <SelectItem key={product.id} value={product.id}>
                   {product.name?.es || product.name} (Retail)
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <p className="text-sm text-muted-foreground">TODO(fase4): Productos retail se habilitarán en la Fase 4</p>
         </div>
       )}
 

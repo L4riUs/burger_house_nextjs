@@ -7,6 +7,8 @@ const ENTITIES = [
   { table: "categories", label: "Categorías", nameField: "name->>es" },
   { table: "units", label: "Unidades", nameField: "name" },
   { table: "raw_materials", label: "Materias Primas", nameField: "name" },
+  { table: "products", label: "Productos", nameField: "name->>es" },
+  { table: "combos", label: "Combos", nameField: "name->>es" },
 ];
 
 export async function listTrash() {
@@ -92,7 +94,14 @@ export async function restoreItem(entity, id) {
   }
 
   revalidatePath("/admin/papelera");
-  revalidatePath(`/admin/inventario/${entity === "categories" ? "categorias" : entity === "units" ? "unidades" : "materias-primas"}`);
+  const pathMap = {
+    categories: "/admin/inventario/categorias",
+    units: "/admin/inventario/unidades",
+    raw_materials: "/admin/inventario/materias-primas",
+    products: "/admin/productos",
+    combos: "/admin/combos",
+  };
+  revalidatePath(pathMap[entity] || "/admin/papelera");
 
   return { success: `${entityConfig.label.slice(0, -1)} restaurada correctamente` };
 }

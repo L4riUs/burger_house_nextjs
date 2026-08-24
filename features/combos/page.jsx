@@ -2,12 +2,18 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useRouter, useSearchParams } from "next/navigation";
-import { listCategories, createCategory, updateCategory, deleteCategory } from "./actions";
-import { CategoryForm } from "./components/CategoryForm";
-import { CategoryTable } from "./components/CategoryTable";
-import { CategoryCards } from "./components/CategoryCards";
-import { CategoryFilters } from "./components/CategoryFilters";
+import {
+  listCombos,
+  createCombo,
+  updateCombo,
+  deleteCombo,
+  listProductsForCombos,
+  getCombo,
+} from "./actions";
+import { ComboForm } from "./components/ComboForm";
+import { ComboTable } from "./components/ComboTable";
+import { ComboCards } from "./components/ComboCards";
+import { ComboFilters } from "./components/ComboFilters";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,40 +25,31 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LayoutGridIcon, ListIcon, PlusIcon, SearchIcon } from "lucide-react";
-import { getLocalizedField } from "@/lib/i18n";
+import { LayoutGridIcon, ListIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
 
-export default function CategoriesPage() {
-  const { toastSuccess, toastWarning, toastError } = useToast();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const [categories, setCategories] = useState([]);
+export default function CombosPage() {
+  const { toastSuccess, toastError } = useToast();
+  const [combos, setCombos] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState("table");
-  const [search, setSearch] = useState(searchParams.get("search") || "");
-  const [appliesTo, setAppliesTo] = useState(searchParams.get("applies_to") || "all");
-  const [page, setPage] = useState(Number(searchParams.get("page")) || 1);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState(null);
+  const [editingCombo, setEditingCombo] = useState(null);
   const [formLoading, setFormLoading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deletingCategory, setDeletingCategory] = useState(null);
-  const [deleteWarning, setDeleteWarning] = useState("");
+  const [deletingCombo, setDeletingCombo] = useState(null);
+  const [products, setProducts] = useState([]);
 
-  const fetchCategories = useCallback(async () => {
+  const fetchCombos = useCallback(async () => {
     setLoading(true);
-    const params = {
+    const result = await listCombos({
       page,
       pageSize: 10,
-      appliesTo: appliesTo === "all" ? undefined : appliesTo,
       search: search || undefined,
-    };
-
-    const result = await listCategories(params);
+    });
 
     if (result.error) {
       console.error(result.error);
@@ -60,40 +57,48 @@ export default function CategoriesPage() {
       return;
     }
 
-    setCategories(result.data || []);
+    setCombos(result.data || []);
     setPagination(result.pagination);
     setLoading(false);
-  }, [page, appliesTo, search]);
+  }, [page, search]);
 
   useEffect(() => {
-    fetchCategories();
-  }, [fetchCategories]);
+    fetchCombos();
+  }, [fetchCombos]);
+
+  useEffect(() => {
+    const fetchLookups = async () => {
+      const prodResult = await listProductsForCombos();
+      if (!prodResult.error) setProducts(prodResult.data || []);
+    };
+    fetchLookups();
+  }, []);
 
   const handleSearch = (value) => {
     setSearch(value);
     setPage(1);
   };
 
-  const handleAppliesToChange = (value) => {
-    setAppliesTo(value);
-    setPage(1);
-  };
-
-  const handleEdit = (category) => {
-    setEditingCategory(category);
+  const handleEdit = async (combo) => {
+    const result = await getCombo(combo.id);
+    if (result.error) {
+      toastError(result.error);
+      return;
+    }
+    setEditingCombo(result.data);
     setFormOpen(true);
   };
 
-  const handleDelete = (category) => {
-    setDeletingCategory(category);
+  const handleDelete = (combo) => {
+    setDeletingCombo(combo);
     setDeleteDialogOpen(true);
   };
 
   const handleConfirmDelete = async () => {
-    if (!deletingCategory) return;
+    if (!deletingCombo) return;
 
     setFormLoading(true);
-    const result = await deleteCategory(deletingCategory.id);
+    const result = await deleteCombo(deletingCombo.id);
     setFormLoading(false);
 
     if (result.error) {
@@ -101,25 +106,20 @@ export default function CategoriesPage() {
       return;
     }
 
-    if (result.warning) {
-      toastWarning(result.success);
-    } else {
-      toastSuccess(result.success);
-    }
+    toastSuccess(result.success);
     setDeleteDialogOpen(false);
-    setDeletingCategory(null);
-    setDeleteWarning("");
-    fetchCategories();
+    setDeletingCombo(null);
+    fetchCombos();
   };
 
   const handleFormSubmit = async (data) => {
     setFormLoading(true);
 
     let result;
-    if (editingCategory) {
-      result = await updateCategory(editingCategory.id, data);
+    if (editingCombo) {
+      result = await updateCombo(editingCombo.id, data);
     } else {
-      result = await createCategory(data);
+      result = await createCombo(data);
     }
 
     setFormLoading(false);
@@ -131,48 +131,62 @@ export default function CategoriesPage() {
 
     toastSuccess(result.success);
     setFormOpen(false);
-    setEditingCategory(null);
-    fetchCategories();
+    setEditingCombo(null);
+    fetchCombos();
   };
 
   const handleFormCancel = () => {
     setFormOpen(false);
-    setEditingCategory(null);
+    setEditingCombo(null);
   };
 
-  const hasFilters = search || appliesTo !== "all";
+  const handleRefresh = () => {
+    fetchCombos();
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Categorías</h1>
+          <h1 className="text-2xl font-bold">Combos</h1>
           <p className="text-muted-foreground">
-            Administra las categorías de productos y materias primas
+            Administra los combos y paquetes del catálogo
           </p>
         </div>
-        <Button onClick={() => { setEditingCategory(null); setFormOpen(true); }}>
-          <PlusIcon className="h-4 w-4 mr-2" />
-          Nueva Categoría
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <Button
+              variant={viewMode === "table" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("table")}
+            >
+              <ListIcon className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === "cards" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("cards")}
+            >
+              <LayoutGridIcon className="h-4 w-4" />
+            </Button>
+          </div>
+          <Button variant="outline" size="sm" onClick={handleRefresh}>
+            <RefreshCwIcon className="h-4 w-4 mr-2" />
+            Actualizar
+          </Button>
+          <Button
+            onClick={() => {
+              setEditingCombo(null);
+              setFormOpen(true);
+            }}
+          >
+            <PlusIcon className="h-4 w-4 mr-2" />
+            Nuevo Combo
+          </Button>
+        </div>
       </div>
 
-      <CategoryFilters
-        search={search}
-        onSearch={handleSearch}
-        appliesTo={appliesTo}
-        onAppliesToChange={handleAppliesToChange}
-        hasFilters={hasFilters}
-      />
-
-      {appliesTo !== "all" && (
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Filtrando por:</span>
-          <span className="text-sm font-medium">
-            {appliesTo === "product" ? "Productos" : "Materias Primas"}
-          </span>
-        </div>
-      )}
+      <ComboFilters search={search} onSearch={handleSearch} />
 
       {loading ? (
         <div className="space-y-4">
@@ -181,14 +195,14 @@ export default function CategoriesPage() {
           ))}
         </div>
       ) : viewMode === "table" ? (
-        <CategoryTable
-          categories={categories}
+        <ComboTable
+          combos={combos}
           onEdit={handleEdit}
           onDelete={handleDelete}
         />
       ) : (
-        <CategoryCards
-          categories={categories}
+        <ComboCards
+          combos={combos}
           onEdit={handleEdit}
           onDelete={handleDelete}
         />
@@ -199,7 +213,7 @@ export default function CategoriesPage() {
           <p className="text-sm text-muted-foreground">
             Mostrando {(pagination.page - 1) * pagination.pageSize + 1} a{" "}
             {Math.min(pagination.page * pagination.pageSize, pagination.total)} de{" "}
-            {pagination.total} categorías
+            {pagination.total} combos
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -227,15 +241,16 @@ export default function CategoriesPage() {
 
       {formOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-background w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg border p-6 shadow-lg">
+          <div className="bg-background w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-lg border p-6 shadow-lg">
             <h2 className="text-xl font-bold mb-6">
-              {editingCategory ? "Editar Categoría" : "Nueva Categoría"}
+              {editingCombo ? "Editar Combo" : "Nuevo Combo"}
             </h2>
-            <CategoryForm
-              initialData={editingCategory}
+            <ComboForm
+              initialData={editingCombo}
               onSubmit={handleFormSubmit}
               onCancel={handleFormCancel}
               isLoading={formLoading}
+              products={products}
             />
           </div>
         </div>
@@ -244,21 +259,16 @@ export default function CategoriesPage() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar categoría</AlertDialogTitle>
+            <AlertDialogTitle>Eliminar combo</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Estás seguro de que quieres eliminar <strong>{deletingCategory ? getLocalizedField(deletingCategory.name, "es") : ""}</strong>?
+              ¿Estás seguro de que quieres eliminar{" "}
+              <strong>{deletingCombo?.name?.es || deletingCombo?.name}</strong>?
               Esta acción la moverá a la papelera.
-              {deleteWarning && (
-                <p className="mt-2 text-sm text-destructive">{deleteWarning}</p>
-              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              disabled={formLoading}
-            >
+            <AlertDialogAction onClick={handleConfirmDelete} disabled={formLoading}>
               {formLoading ? "Eliminando..." : "Eliminar"}
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CartDrawer } from "@/features/cart/components/CartDrawer";
 
 export default function StoreLayout({ children }) {
   return (
@@ -11,9 +12,13 @@ export default function StoreLayout({ children }) {
             Burger House
           </Link>
           <nav className="flex items-center gap-4">
-            <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground">
-              Iniciar Sesión
+            <Link
+              href="/menu"
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              Menú
             </Link>
+            <CartDrawer />
           </nav>
         </div>
       </header>

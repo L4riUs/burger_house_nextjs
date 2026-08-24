@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useToast } from "@/hooks/use-toast";
 import { useRouter, useSearchParams } from "next/navigation";
 import { listInventoryMovements, createInventoryMovement, listRawMaterialsForMovement, listProductsForMovement, listSuppliersForMovement } from "../../actions";
 import { MovementForm } from "../../components/MovementForm";
@@ -22,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { LayoutGridIcon, ListIcon, PlusIcon, RefreshCwIcon, SearchIcon, FilterIcon } from "lucide-react";
 
 export default function MovimientosPage() {
+  const { toastSuccess, toastError } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -97,10 +99,11 @@ export default function MovimientosPage() {
     setFormLoading(false);
 
     if (result.error) {
-      alert(result.error);
+      toastError(result.error);
       return;
     }
 
+    toastSuccess(result.success);
     setFormOpen(false);
     fetchMovements();
   };

@@ -43,7 +43,7 @@ export function RawMaterialTable({ materials, onEdit, onDelete }) {
             const isLowStock = currentStock < minStock;
 
             return (
-              <TableRow key={material.id} className={isLowStock ? "bg-amber-50" : ""}>
+              <TableRow key={material.id}>
                 <TableCell className="font-medium">{material.name}</TableCell>
                 <TableCell className="text-muted-foreground">
                   {material.category?.name?.es || material.category?.name || "—"}

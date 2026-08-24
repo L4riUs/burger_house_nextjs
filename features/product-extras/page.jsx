@@ -2,12 +2,18 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useRouter, useSearchParams } from "next/navigation";
-import { listCategories, createCategory, updateCategory, deleteCategory } from "./actions";
-import { CategoryForm } from "./components/CategoryForm";
-import { CategoryTable } from "./components/CategoryTable";
-import { CategoryCards } from "./components/CategoryCards";
-import { CategoryFilters } from "./components/CategoryFilters";
+import {
+  listProductExtras,
+  createProductExtra,
+  updateProductExtra,
+  deleteProductExtra,
+  listProductsForExtras,
+  listRawMaterialsForExtras,
+} from "./actions";
+import { ExtraForm } from "./components/ExtraForm";
+import { ExtraTable } from "./components/ExtraTable";
+import { ExtraCards } from "./components/ExtraCards";
+import { ExtraFilters } from "./components/ExtraFilters";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,40 +25,32 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LayoutGridIcon, ListIcon, PlusIcon, SearchIcon } from "lucide-react";
-import { getLocalizedField } from "@/lib/i18n";
+import { LayoutGridIcon, ListIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
 
-export default function CategoriesPage() {
-  const { toastSuccess, toastWarning, toastError } = useToast();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const [categories, setCategories] = useState([]);
+export default function ProductExtrasPage() {
+  const { toastSuccess, toastError } = useToast();
+  const [extras, setExtras] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState("table");
-  const [search, setSearch] = useState(searchParams.get("search") || "");
-  const [appliesTo, setAppliesTo] = useState(searchParams.get("applies_to") || "all");
-  const [page, setPage] = useState(Number(searchParams.get("page")) || 1);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState(null);
+  const [editingExtra, setEditingExtra] = useState(null);
   const [formLoading, setFormLoading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deletingCategory, setDeletingCategory] = useState(null);
-  const [deleteWarning, setDeleteWarning] = useState("");
+  const [deletingExtra, setDeletingExtra] = useState(null);
+  const [products, setProducts] = useState([]);
+  const [rawMaterials, setRawMaterials] = useState([]);
 
-  const fetchCategories = useCallback(async () => {
+  const fetchExtras = useCallback(async () => {
     setLoading(true);
-    const params = {
+    const result = await listProductExtras({
       page,
       pageSize: 10,
-      appliesTo: appliesTo === "all" ? undefined : appliesTo,
       search: search || undefined,
-    };
-
-    const result = await listCategories(params);
+    });
 
     if (result.error) {
       console.error(result.error);
@@ -60,40 +58,47 @@ export default function CategoriesPage() {
       return;
     }
 
-    setCategories(result.data || []);
+    setExtras(result.data || []);
     setPagination(result.pagination);
     setLoading(false);
-  }, [page, appliesTo, search]);
+  }, [page, search]);
 
   useEffect(() => {
-    fetchCategories();
-  }, [fetchCategories]);
+    fetchExtras();
+  }, [fetchExtras]);
+
+  useEffect(() => {
+    const fetchLookups = async () => {
+      const [prodResult, rmResult] = await Promise.all([
+        listProductsForExtras(),
+        listRawMaterialsForExtras(),
+      ]);
+      if (!prodResult.error) setProducts(prodResult.data || []);
+      if (!rmResult.error) setRawMaterials(rmResult.data || []);
+    };
+    fetchLookups();
+  }, []);
 
   const handleSearch = (value) => {
     setSearch(value);
     setPage(1);
   };
 
-  const handleAppliesToChange = (value) => {
-    setAppliesTo(value);
-    setPage(1);
-  };
-
-  const handleEdit = (category) => {
-    setEditingCategory(category);
+  const handleEdit = (extra) => {
+    setEditingExtra(extra);
     setFormOpen(true);
   };
 
-  const handleDelete = (category) => {
-    setDeletingCategory(category);
+  const handleDelete = (extra) => {
+    setDeletingExtra(extra);
     setDeleteDialogOpen(true);
   };
 
   const handleConfirmDelete = async () => {
-    if (!deletingCategory) return;
+    if (!deletingExtra) return;
 
     setFormLoading(true);
-    const result = await deleteCategory(deletingCategory.id);
+    const result = await deleteProductExtra(deletingExtra.id);
     setFormLoading(false);
 
     if (result.error) {
@@ -101,25 +106,20 @@ export default function CategoriesPage() {
       return;
     }
 
-    if (result.warning) {
-      toastWarning(result.success);
-    } else {
-      toastSuccess(result.success);
-    }
+    toastSuccess(result.success);
     setDeleteDialogOpen(false);
-    setDeletingCategory(null);
-    setDeleteWarning("");
-    fetchCategories();
+    setDeletingExtra(null);
+    fetchExtras();
   };
 
   const handleFormSubmit = async (data) => {
     setFormLoading(true);
 
     let result;
-    if (editingCategory) {
-      result = await updateCategory(editingCategory.id, data);
+    if (editingExtra) {
+      result = await updateProductExtra(editingExtra.id, data);
     } else {
-      result = await createCategory(data);
+      result = await createProductExtra(data);
     }
 
     setFormLoading(false);
@@ -131,48 +131,62 @@ export default function CategoriesPage() {
 
     toastSuccess(result.success);
     setFormOpen(false);
-    setEditingCategory(null);
-    fetchCategories();
+    setEditingExtra(null);
+    fetchExtras();
   };
 
   const handleFormCancel = () => {
     setFormOpen(false);
-    setEditingCategory(null);
+    setEditingExtra(null);
   };
 
-  const hasFilters = search || appliesTo !== "all";
+  const handleRefresh = () => {
+    fetchExtras();
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Categorías</h1>
+          <h1 className="text-2xl font-bold">Adicionales</h1>
           <p className="text-muted-foreground">
-            Administra las categorías de productos y materias primas
+            Administra los adicionales/modificadores del catálogo
           </p>
         </div>
-        <Button onClick={() => { setEditingCategory(null); setFormOpen(true); }}>
-          <PlusIcon className="h-4 w-4 mr-2" />
-          Nueva Categoría
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <Button
+              variant={viewMode === "table" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("table")}
+            >
+              <ListIcon className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === "cards" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("cards")}
+            >
+              <LayoutGridIcon className="h-4 w-4" />
+            </Button>
+          </div>
+          <Button variant="outline" size="sm" onClick={handleRefresh}>
+            <RefreshCwIcon className="h-4 w-4 mr-2" />
+            Actualizar
+          </Button>
+          <Button
+            onClick={() => {
+              setEditingExtra(null);
+              setFormOpen(true);
+            }}
+          >
+            <PlusIcon className="h-4 w-4 mr-2" />
+            Nuevo Adicional
+          </Button>
+        </div>
       </div>
 
-      <CategoryFilters
-        search={search}
-        onSearch={handleSearch}
-        appliesTo={appliesTo}
-        onAppliesToChange={handleAppliesToChange}
-        hasFilters={hasFilters}
-      />
-
-      {appliesTo !== "all" && (
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Filtrando por:</span>
-          <span className="text-sm font-medium">
-            {appliesTo === "product" ? "Productos" : "Materias Primas"}
-          </span>
-        </div>
-      )}
+      <ExtraFilters search={search} onSearch={handleSearch} />
 
       {loading ? (
         <div className="space-y-4">
@@ -181,14 +195,16 @@ export default function CategoriesPage() {
           ))}
         </div>
       ) : viewMode === "table" ? (
-        <CategoryTable
-          categories={categories}
+        <ExtraTable
+          extras={extras}
+          products={products}
           onEdit={handleEdit}
           onDelete={handleDelete}
         />
       ) : (
-        <CategoryCards
-          categories={categories}
+        <ExtraCards
+          extras={extras}
+          products={products}
           onEdit={handleEdit}
           onDelete={handleDelete}
         />
@@ -199,7 +215,7 @@ export default function CategoriesPage() {
           <p className="text-sm text-muted-foreground">
             Mostrando {(pagination.page - 1) * pagination.pageSize + 1} a{" "}
             {Math.min(pagination.page * pagination.pageSize, pagination.total)} de{" "}
-            {pagination.total} categorías
+            {pagination.total} adicionales
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -227,15 +243,17 @@ export default function CategoriesPage() {
 
       {formOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-background w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg border p-6 shadow-lg">
+          <div className="bg-background w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-lg border p-6 shadow-lg">
             <h2 className="text-xl font-bold mb-6">
-              {editingCategory ? "Editar Categoría" : "Nueva Categoría"}
+              {editingExtra ? "Editar Adicional" : "Nuevo Adicional"}
             </h2>
-            <CategoryForm
-              initialData={editingCategory}
+            <ExtraForm
+              initialData={editingExtra}
               onSubmit={handleFormSubmit}
               onCancel={handleFormCancel}
               isLoading={formLoading}
+              products={products}
+              rawMaterials={rawMaterials}
             />
           </div>
         </div>
@@ -244,21 +262,16 @@ export default function CategoriesPage() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar categoría</AlertDialogTitle>
+            <AlertDialogTitle>Eliminar adicional</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Estás seguro de que quieres eliminar <strong>{deletingCategory ? getLocalizedField(deletingCategory.name, "es") : ""}</strong>?
+              ¿Estás seguro de que quieres eliminar{" "}
+              <strong>{deletingExtra?.name?.es || deletingExtra?.name}</strong>?
               Esta acción la moverá a la papelera.
-              {deleteWarning && (
-                <p className="mt-2 text-sm text-destructive">{deleteWarning}</p>
-              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              disabled={formLoading}
-            >
+            <AlertDialogAction onClick={handleConfirmDelete} disabled={formLoading}>
               {formLoading ? "Eliminando..." : "Eliminar"}
             </AlertDialogAction>
           </AlertDialogFooter>
