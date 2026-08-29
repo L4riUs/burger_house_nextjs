@@ -149,7 +149,7 @@ export function AddToCartButton({ product, combo }) {
 
   return (
     <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-      <SheetTrigger asChild>{triggerButton}</SheetTrigger>
+      <SheetTrigger render={triggerButton} />
       <SheetContent className="w-full max-w-md overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{name}</SheetTitle>

@@ -9,10 +9,11 @@ import { loginSchema } from "@/features/auth/schemas";
 import { signIn } from "@/features/auth/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FlameIcon, ArrowRightIcon } from "lucide-react";
+import { ArrowRightIcon, EyeIcon, EyeOffIcon, FlameIcon } from "lucide-react";
 
 export function LoginForm() {
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const router = useRouter();
 
@@ -126,13 +127,26 @@ export function LoginForm() {
                     ¿Olvidaste tu contraseña?
                   </Link>
                 </div>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  className="h-12 border-zinc-800 bg-zinc-950/50 px-4 text-white placeholder:text-zinc-600 focus-visible:border-orange-500 focus-visible:ring-1 focus-visible:ring-orange-500 transition-colors rounded-xl"
-                  {...form.register("password")}
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    className="h-12 border-zinc-800 bg-zinc-950/50 px-4 pr-12 text-white placeholder:text-zinc-600 focus-visible:border-orange-500 focus-visible:ring-1 focus-visible:ring-orange-500 transition-colors rounded-xl"
+                    {...form.register("password")}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                    title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                    className="absolute top-1/2 right-2 -translate-y-1/2 text-zinc-400 hover:bg-zinc-800/60 hover:text-white"
+                  >
+                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  </Button>
+                </div>
                 {form.formState.errors.password && (
                   <p className="text-xs font-medium text-red-400">
                     {form.formState.errors.password.message}

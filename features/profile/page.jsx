@@ -141,7 +141,7 @@ export default function ProfilePage() {
             </Avatar>
             <div>
               <Label htmlFor="avatar-upload" className="cursor-pointer">
-                <Button variant="outline" size="sm" disabled={uploadingAvatar} asChild>
+                <Button variant="outline" size="sm" disabled={uploadingAvatar}>
                   <span>
                     {uploadingAvatar ? "Subiendo..." : "Cambiar foto"}
                   </span>

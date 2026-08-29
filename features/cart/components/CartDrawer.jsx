@@ -25,9 +25,7 @@ export function CartDrawer({ trigger }) {
 
   return (
     <Sheet>
-      <SheetTrigger asChild>
-        {trigger || <CartButtonWithBadge />}
-      </SheetTrigger>
+      <SheetTrigger render={trigger || CartButtonWithBadge} />
       <SheetContent className="flex w-full max-w-md flex-col">
         <SheetHeader>
           <SheetTitle>Carrito de compras</SheetTitle>
@@ -72,8 +70,8 @@ export function CartDrawer({ trigger }) {
               >
                 Vaciar carrito
               </Button>
-              <Button asChild className="flex-1">
-                <Link href="/checkout">Proceder al checkout</Link>
+              <Button render={<Link href="/checkout" />} nativeButton={false} className="flex-1">
+                Proceder al checkout
               </Button>
             </div>
           </SheetFooter>
@@ -83,10 +81,16 @@ export function CartDrawer({ trigger }) {
   );
 }
 
-function CartButtonWithBadge() {
+function CartButtonWithBadge({ onOpenChange, ...props }) {
   const itemCount = useCartStore((state) => state.getItemCount());
   return (
-    <Button variant="ghost" size="icon" className="relative">
+    <Button
+      variant="ghost"
+      size="icon"
+      className="relative"
+      onClick={() => onOpenChange?.(true)}
+      {...props}
+    >
       <ShoppingCartIcon className="h-5 w-5" />
       {itemCount > 0 && (
         <Badge

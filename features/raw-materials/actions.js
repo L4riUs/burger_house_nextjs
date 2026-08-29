@@ -64,7 +64,8 @@ export async function listRawMaterials({
 
   let materials = data || [];
 
-  if (lowStock) {
+  // SIEMPRE traer stock actual para mostrar en la tabla
+  if (materials.length > 0) {
     const { data: stockData } = await supabase
       .from("current_stock")
       .select("item_id, stock")
@@ -73,8 +74,15 @@ export async function listRawMaterials({
 
     const stockMap = new Map(stockData?.map(s => [s.item_id, s.stock]) || []);
     
+    materials = materials.map(m => ({
+      ...m,
+      current_stock: stockMap.get(m.id) || 0,
+    }));
+  }
+
+  if (lowStock) {
     materials = materials.filter(m => {
-      const currentStock = stockMap.get(m.id) || 0;
+      const currentStock = m.current_stock || 0;
       return currentStock < (m.min_stock || 0);
     });
   }
@@ -192,7 +200,7 @@ export async function createRawMaterial(formData) {
 
   const parsed = rawMaterialSchema.safeParse(formData);
   if (!parsed.success) {
-    return { error: parsed.error.errors[0].message };
+    return { error: parsed.error.issues[0].message };
   }
 
   const { data, error } = await supabase
@@ -239,7 +247,7 @@ export async function updateRawMaterial(id, formData) {
 
   const parsed = rawMaterialSchema.safeParse(formData);
   if (!parsed.success) {
-    return { error: parsed.error.errors[0].message };
+    return { error: parsed.error.issues[0].message };
   }
 
   const { data, error } = await supabase

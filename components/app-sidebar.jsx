@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -35,8 +36,11 @@ import {
   SandwichIcon,
   PlusCircleIcon,
   GiftIcon,
+  AlertTriangle,
+  WifiOff,
 } from "lucide-react";
 import { isOwnerOrAdmin } from "@/features/auth/role-logic";
+import { getPendingSyncCount, getConflictCount } from "@/lib/offline-queue";
 
 const NAV_GROUPS = [
   {
@@ -49,8 +53,10 @@ const NAV_GROUPS = [
     label: "Operación",
     items: [
       { title: "Órdenes", href: "/admin/orders", icon: ClipboardListIcon },
+      { title: "POS / Nueva Orden", href: "/admin/pos", icon: PlusCircleIcon },
       { title: "Mesas", href: "/admin/tables", icon: TableIcon },
       { title: "Menú", href: "/admin/menu", icon: UtensilsIcon },
+      { title: "Cola Offline", href: "/admin/offline-queue", icon: AlertTriangle, badge: true },
     ],
   },
   {
@@ -80,12 +86,33 @@ const INVENTORY_SUB_ITEMS = [
 export function AppSidebar({ user, profile, ...props }) {
   const pathname = usePathname();
   const role = profile?.role;
+  const [pendingCount, setPendingCount] = useState(0);
+  const [conflictCount, setConflictCount] = useState(0);
+
+  useEffect(() => {
+    const updateCounts = async () => {
+      const [pending, conflicts] = await Promise.all([
+        getPendingSyncCount(),
+        getConflictCount(),
+      ]);
+      setPendingCount(pending);
+      setConflictCount(conflicts);
+    };
+    updateCounts();
+    const interval = setInterval(updateCounts, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const visibleGroups = NAV_GROUPS.map((group) => ({
     ...group,
     items: group.items.filter((item) => {
       if (item.adminOnly && !isOwnerOrAdmin(role)) return false;
       return true;
+    }).map(item => {
+      if (item.badge && (pendingCount > 0 || conflictCount > 0)) {
+        return { ...item, badgeContent: pendingCount + conflictCount };
+      }
+      return item;
     }),
   })).filter((group) => group.items.length > 0);
 
@@ -144,6 +171,11 @@ export function AppSidebar({ user, profile, ...props }) {
                       <Link href={item.href} className="flex items-center gap-3">
                         <Icon />
                         <span>{item.title}</span>
+                        {item.badgeContent && item.badgeContent > 0 && (
+                          <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive/10 text-destructive text-xs font-medium px-1.5">
+                            {item.badgeContent}
+                          </span>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

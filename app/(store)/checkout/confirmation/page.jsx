@@ -30,8 +30,8 @@ export default function CheckoutConfirmationPage() {
             Recibirás una llamada o mensaje para confirmar los detalles de tu
             pedido.
           </p>
-          <Button asChild>
-            <Link href="/menu">Volver al menú</Link>
+          <Button render={<Link href="/menu" />} nativeButton={false}>
+            Volver al menú
           </Button>
         </CardContent>
       </Card>

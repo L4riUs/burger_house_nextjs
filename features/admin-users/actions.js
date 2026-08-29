@@ -84,7 +84,7 @@ export async function changeUserRole(userId, newRole) {
 
   const parsed = changeRoleSchema.safeParse({ userId, newRole });
   if (!parsed.success) {
-    return { error: parsed.error.errors[0].message };
+    return { error: parsed.error.issues[0].message };
   }
 
   if (!canAssignRole(actorProfile.role, newRole)) {

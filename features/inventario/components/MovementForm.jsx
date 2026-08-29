@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,8 @@ import {
   MOVEMENT_TYPES, 
   MOVEMENT_TYPE_LABELS, 
   MOVEMENT_TYPE_VARIANTS,
-  getMovementTypeOptionsGrouped 
+  getMovementTypeOptionsGrouped,
+  getMovementTypeLabel,
 } from "../lib/movement-utils";
 
 export function MovementForm({ 
@@ -32,24 +33,26 @@ export function MovementForm({
   isLoading,
   rawMaterials = [],
   products = [],
-  suppliers = []
+  suppliers = [],
+  units = []
 }) {
   const methods = useForm({
     resolver: zodResolver(inventoryMovementFormSchema),
     defaultValues: {
       item_type: "raw_material",
-      raw_material_id: "",
-      product_id: "",
+      raw_material_id: null,
+      product_id: null,
       movement_type: MOVEMENT_TYPES.PURCHASE_IN,
       quantity: "",
+      unit_id: null,
       unit_cost: null,
-      supplier_id: "",
+      supplier_id: null,
       note: "",
       ...initialData,
     },
   });
 
-  const { register, handleSubmit, formState: { errors }, setValue, watch, reset } = methods;
+  const { control, handleSubmit, register, formState: { errors }, setValue, watch, reset } = methods;
   const itemType = watch("item_type");
   const movementType = watch("movement_type");
   const rawMaterialId = watch("raw_material_id");
@@ -71,12 +74,13 @@ export function MovementForm({
       const itemTypeFromData = initialData.raw_material_id ? "raw_material" : "product";
       methods.reset({
         item_type: itemTypeFromData,
-        raw_material_id: initialData.raw_material_id || "",
-        product_id: initialData.product_id || "",
+        raw_material_id: initialData.raw_material_id || null,
+        product_id: initialData.product_id || null,
         movement_type: initialData.movement_type || MOVEMENT_TYPES.PURCHASE_IN,
         quantity: initialData.quantity || "",
+        unit_id: initialData.unit_id || null,
         unit_cost: initialData.unit_cost || null,
-        supplier_id: initialData.supplier_id || "",
+        supplier_id: initialData.supplier_id || null,
         note: initialData.note || "",
       });
     }
@@ -94,12 +98,22 @@ export function MovementForm({
 
   useEffect(() => {
     if (itemType === "raw_material") {
-      setValue("product_id", "");
+      setValue("product_id", null);
     } else if (itemType === "product") {
-      setValue("raw_material_id", "");
+      setValue("raw_material_id", null);
     }
-    setValue("supplier_id", "");
+    setValue("supplier_id", null);
   }, [itemType, setValue]);
+
+  // Cuando se selecciona una materia prima, actualizar unit_id automáticamente a la unidad base del material
+  useEffect(() => {
+    if (showRawMaterial && rawMaterialId) {
+      const material = rawMaterials.find(m => m.id === rawMaterialId);
+      if (material?.unit_id) {
+        setValue("unit_id", material.unit_id);
+      }
+    }
+  }, [showRawMaterial, rawMaterialId, rawMaterials, setValue]);
 
   const handleSubmitForm = (data) => {
     onSubmit(data);
@@ -142,59 +156,75 @@ export function MovementForm({
         {errors.item_type && <p className="text-sm text-destructive">{errors.item_type.message}</p>}
       </div>
 
-      {showRawMaterial && (
+{showRawMaterial && (
         <div className="space-y-4">
           <Label htmlFor="raw_material_id">Materia Prima *</Label>
-          <Select
-            {...register("raw_material_id")}
-            onValueChange={(value) => {
-              setValue("raw_material_id", value);
-              const material = rawMaterials.find(m => m.id === value);
-              setSelectedItem(material || null);
-            }}
-            disabled={isLoading}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Selecciona una materia prima" />
-            </SelectTrigger>
-            <SelectContent>
-              {rawMaterials.map((material) => (
-                <SelectItem key={material.id} value={material.id}>
-                  {material.name} ({material.unit?.abbreviation || "un"}) - Stock mín: {material.min_stock}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Controller
+            name="raw_material_id"
+            control={control}
+            render={({ field }) => (
+              <Select
+                value={field.value ? String(field.value) : undefined}
+                onValueChange={(value) => {
+                  field.onChange(value || null);
+                  const material = rawMaterials.find(m => m.id === value);
+                  setSelectedItem(material || null);
+                }}
+                disabled={isLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona una materia prima">
+                    {selectedRawMaterialLabel || "Selecciona una materia prima"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {rawMaterials.map((material) => (
+                    <SelectItem key={material.id} value={material.id}>
+                      {material.name} ({material.unit?.abbreviation || "un"}) - Stock mín: {material.min_stock}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
           {selectedRawMaterialLabel && (
             <p className="text-xs text-muted-foreground">Seleccionado: {selectedRawMaterialLabel}</p>
           )}
           {errors.raw_material_id && <p className="text-sm text-destructive">{errors.raw_material_id.message}</p>}
-        </div>
+</div>
       )}
 
-      {showProduct && (
+{showProduct && (
         <div className="space-y-4">
           <Label htmlFor="product_id">Producto Retail *</Label>
-          <Select
-            {...register("product_id")}
-            onValueChange={(value) => {
-              setValue("product_id", value);
-              const product = products.find(p => p.id === value);
-              setSelectedItem(product || null);
-            }}
-            disabled={isLoading}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Selecciona un producto retail" />
-            </SelectTrigger>
-            <SelectContent>
-              {products.map((product) => (
-                <SelectItem key={product.id} value={product.id}>
-                  {product.name?.es || product.name} (Retail)
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Controller
+            name="product_id"
+            control={control}
+            render={({ field }) => (
+              <Select
+                value={field.value ? String(field.value) : undefined}
+                onValueChange={(value) => {
+                  field.onChange(value || null);
+                  const product = products.find(p => p.id === value);
+                  setSelectedItem(product || null);
+                }}
+                disabled={isLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un producto retail">
+                    {selectedProductLabel || "Selecciona un producto retail"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {products.map((product) => (
+                    <SelectItem key={product.id} value={product.id}>
+                      {product.name?.es || product.name} (Retail)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
         </div>
       )}
 
@@ -202,33 +232,45 @@ export function MovementForm({
 
       <div className="space-y-4">
         <Label>Tipo de Movimiento *</Label>
-        <Select
-          {...register("movement_type")}
-          onValueChange={(value) => setValue("movement_type", value)}
-          disabled={isLoading}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Selecciona el tipo de movimiento" />
-          </SelectTrigger>
-          <SelectContent>
-            {getMovementTypeOptionsGrouped().map((group) => (
-              <SelectGroup key={group.label}>
-                <SelectLabel>{group.label}</SelectLabel>
-                {group.options.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
+        <Controller
+          name="movement_type"
+          control={control}
+          render={({ field }) => (
+            <Select
+              value={field.value ? String(field.value) : undefined}
+              onValueChange={field.onChange}
+              disabled={isLoading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona el tipo de movimiento">
+                  {getMovementTypeLabel(movementType)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {getMovementTypeOptionsGrouped().map((group) => (
+                  <SelectGroup key={group.label}>
+                    <SelectLabel>{group.label}</SelectLabel>
+                    {group.options.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 ))}
-              </SelectGroup>
-            ))}
-          </SelectContent>
-        </Select>
+              </SelectContent>
+            </Select>
+          )}
+        />
         {errors.movement_type && <p className="text-sm text-destructive">{errors.movement_type.message}</p>}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-4">
-          <Label htmlFor="quantity">Cantidad *</Label>
+          <Label htmlFor="quantity">
+            Cantidad {showRawMaterial && selectedItem?.unit?.abbreviation
+              ? `(${selectedItem.unit.abbreviation}) `
+              : ""}*
+          </Label>
           <Input
             id="quantity"
             type="number"
@@ -254,7 +296,7 @@ export function MovementForm({
           />
           {errors.unit_cost && <p className="text-sm text-destructive">{errors.unit_cost.message}</p>}
           {!isPurchase && (
-            <p className="text-sm text-muted-foreground">Solo requerido para compras (purchase_in)</p>
+            <p className="text-sm text-muted-foreground">Solo requerido para compras (Compra / Entrada)</p>
           )}
         </div>
       </div>
@@ -262,23 +304,31 @@ export function MovementForm({
       {isPurchase && (
         <div className="space-y-4">
           <Label htmlFor="supplier_id">Proveedor *</Label>
-          <Select
-            {...register("supplier_id")}
-            onValueChange={(value) => setValue("supplier_id", value === "" ? null : value)}
-            disabled={isLoading}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Selecciona un proveedor" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">Sin proveedor</SelectItem>
-              {suppliers.map((supplier) => (
-                <SelectItem key={supplier.id} value={supplier.id}>
-                  {supplier.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Controller
+            name="supplier_id"
+            control={control}
+            render={({ field }) => (
+              <Select
+                value={field.value ? String(field.value) : undefined}
+                onValueChange={(value) => field.onChange(value === "" ? null : value)}
+                disabled={isLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un proveedor">
+                    {selectedSupplierLabel || "Selecciona un proveedor"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Sin proveedor</SelectItem>
+                  {suppliers.map((supplier) => (
+                    <SelectItem key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
           {selectedSupplierLabel && (
             <p className="text-xs text-muted-foreground">Seleccionado: {selectedSupplierLabel}</p>
           )}

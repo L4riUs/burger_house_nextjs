@@ -23,8 +23,8 @@ export default function CartPage() {
         <p className="text-muted-foreground mb-4">
           Aún no has agregado productos a tu carrito.
         </p>
-        <Button asChild>
-          <Link href="/menu">Ver menú</Link>
+        <Button render={<Link href="/menu" />} nativeButton={false}>
+          Ver menú
         </Button>
       </div>
     );
@@ -65,8 +65,8 @@ export default function CartPage() {
           <Button variant="outline" onClick={clearCart}>
             Vaciar carrito
           </Button>
-          <Button asChild>
-            <Link href="/checkout">Proceder al checkout</Link>
+          <Button render={<Link href="/checkout" />} nativeButton={false}>
+            Proceder al checkout
           </Button>
         </div>
       </div>

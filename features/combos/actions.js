@@ -129,7 +129,7 @@ export async function createCombo(formData) {
 
   const parsed = comboSchema.safeParse(formData);
   if (!parsed.success) {
-    return { error: parsed.error.errors[0].message };
+    return { error: parsed.error.issues[0].message };
   }
 
   const { combo_items, ...comboData } = parsed.data;
@@ -203,7 +203,7 @@ export async function updateCombo(id, formData) {
 
   const parsed = comboSchema.safeParse(formData);
   if (!parsed.success) {
-    return { error: parsed.error.errors[0].message };
+    return { error: parsed.error.issues[0].message };
   }
 
   const { combo_items, ...comboData } = parsed.data;

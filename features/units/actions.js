@@ -108,7 +108,7 @@ export async function createUnit(formData) {
 
   const parsed = unitSchema.safeParse(formData);
   if (!parsed.success) {
-    return { error: parsed.error.errors[0].message };
+    return { error: parsed.error.issues[0].message };
   }
 
   if (parsed.data.is_base_unit) {
@@ -168,7 +168,7 @@ export async function updateUnit(id, formData) {
 
   const parsed = unitSchema.safeParse(formData);
   if (!parsed.success) {
-    return { error: parsed.error.errors[0].message };
+    return { error: parsed.error.issues[0].message };
   }
 
   if (parsed.data.is_base_unit) {

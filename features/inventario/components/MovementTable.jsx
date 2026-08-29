@@ -28,14 +28,31 @@ function formatDate(dateString) {
 export function MovementTable({ movements, onViewDetails }) {
   const movementsWithStock = useMemo(() => {
     if (!movements || movements.length === 0) return [];
-    let runningStock = 0;
-    return movements.map((movement) => {
-      const sign = getMovementSign(movement.movement_type);
-      const quantity = Number(movement.quantity);
-      const signedQty = quantity * sign;
-      runningStock += signedQty;
-      return { ...movement, sign, quantity, runningStock };
+
+    const movementsByItem = new Map();
+    movements.forEach((movement) => {
+      const itemKey = `${movement.item_type}:${movement.raw_material_id || movement.product_id}`;
+      const itemMovements = movementsByItem.get(itemKey) || [];
+      itemMovements.push(movement);
+      movementsByItem.set(itemKey, itemMovements);
     });
+
+    const stockByMovementId = new Map();
+    movementsByItem.forEach((itemMovements) => {
+      let runningStock = 0;
+      [...itemMovements].reverse().forEach((movement) => {
+        const sign = getMovementSign(movement.movement_type);
+        runningStock += Number(movement.quantity) * sign;
+        stockByMovementId.set(movement.id, runningStock);
+      });
+    });
+
+    return movements.map((movement) => ({
+      ...movement,
+      sign: getMovementSign(movement.movement_type),
+      quantity: Number(movement.quantity),
+      runningStock: stockByMovementId.get(movement.id) || 0,
+    }));
   }, [movements]);
 
   if (!movements || movements.length === 0) {
@@ -55,6 +72,7 @@ export function MovementTable({ movements, onViewDetails }) {
             <TableHead>Tipo</TableHead>
             <TableHead>Ítem</TableHead>
             <TableHead className="text-right">Cantidad</TableHead>
+            <TableHead className="text-right">Unidad</TableHead>
             <TableHead className="text-right">Stock Resultante</TableHead>
             <TableHead>Costo Unit.</TableHead>
             <TableHead>Proveedor</TableHead>
@@ -75,19 +93,20 @@ export function MovementTable({ movements, onViewDetails }) {
               </TableCell>
               <TableCell className="font-medium">
                 {movement.raw_material?.name || movement.product?.name || "—"}
-                {movement.raw_material?.unit && (
-                  <span className="text-muted-foreground ml-1 text-xs">
-                    ({movement.raw_material.unit.abbreviation})
+              </TableCell>
+              <TableCell className="text-right font-mono text-sm">
+                {movement.quantity.toLocaleString()}
+                {movement.unit_id && movement.raw_material?.unit_id !== movement.unit_id && movement.raw_material?.unit && movement.unit && (
+                  <span className="text-muted-foreground ml-1 text-xs block">
+                    ≈ {Number(movement.quantity) * Number(movement.unit?.conversion_factor || 1) / Number(movement.raw_material?.unit?.conversion_factor || 1)} {movement.raw_material.unit.abbreviation}
                   </span>
                 )}
               </TableCell>
-              <TableCell className="text-right font-mono font-medium">
-                <span className={movement.sign > 0 ? "text-green-600" : "text-red-600"}>
-                  {movement.sign > 0 ? "+" : ""}{movement.quantity.toLocaleString()}
-                </span>
+              <TableCell className="text-right font-mono text-sm">
+                {movement.raw_material?.unit?.abbreviation || movement.unit?.abbreviation || "—"}
               </TableCell>
               <TableCell className="text-right font-mono font-medium">
-                {movement.runningStock.toLocaleString()}
+                {movement.runningStock.toLocaleString()} {movement.raw_material?.unit_abbreviation || movement.raw_material?.unit?.abbreviation || ""}
               </TableCell>
               <TableCell className="text-right font-mono text-sm">
                 {movement.unit_cost ? `${Number(movement.unit_cost).toFixed(2)}` : "—"}

@@ -53,9 +53,9 @@ export function RawMaterialTable({ materials, onEdit, onDelete }) {
                 </TableCell>
                 <TableCell className="font-mono">{Number(minStock).toLocaleString()}</TableCell>
                 <TableCell className="font-mono">${Number(material.average_cost || 0).toFixed(2)}</TableCell>
-                <TableCell className="font-mono font-medium">
-                  {Number(currentStock).toLocaleString()}
-                </TableCell>
+<TableCell className="font-mono font-medium">
+              {Number(currentStock).toLocaleString()} {material.unit_abbreviation || material.unit?.abbreviation || ""}
+            </TableCell>
                 <TableCell>
                   {isLowStock && (
                     <Badge variant="destructive" className="gap-1">

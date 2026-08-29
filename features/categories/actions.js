@@ -108,7 +108,7 @@ export async function createCategory(formData) {
 
   const parsed = categorySchema.safeParse(formData);
   if (!parsed.success) {
-    return { error: parsed.error.errors[0].message };
+    return { error: parsed.error.issues[0].message };
   }
 
   const { data, error } = await supabase
@@ -153,7 +153,7 @@ export async function updateCategory(id, formData) {
 
   const parsed = categorySchema.safeParse(formData);
   if (!parsed.success) {
-    return { error: parsed.error.errors[0].message };
+    return { error: parsed.error.issues[0].message };
   }
 
   const { data, error } = await supabase

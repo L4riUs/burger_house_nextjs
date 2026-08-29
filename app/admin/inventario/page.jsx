@@ -102,10 +102,8 @@ export default function InventarioIndexPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <Button asChild variant="outline" className="w-full">
-                <Link href={section.href}>
-                  Ir a {section.title}
-                </Link>
+              <Button render={<Link href={section.href} />} nativeButton={false} variant="outline" className="w-full">
+                Ir a {section.title}
               </Button>
             </CardContent>
           </Card>

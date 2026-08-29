@@ -180,7 +180,7 @@ export async function createProductExtra(formData) {
 
   const parsed = productExtraSchema.safeParse(formData);
   if (!parsed.success) {
-    return { error: parsed.error.errors[0].message };
+    return { error: parsed.error.issues[0].message };
   }
 
   const { product_ids, ...extraData } = parsed.data;
@@ -251,7 +251,7 @@ export async function updateProductExtra(id, formData) {
 
   const parsed = productExtraSchema.safeParse(formData);
   if (!parsed.success) {
-    return { error: parsed.error.errors[0].message };
+    return { error: parsed.error.issues[0].message };
   }
 
   const { product_ids, ...extraData } = parsed.data;

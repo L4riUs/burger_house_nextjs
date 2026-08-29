@@ -314,8 +314,8 @@ export function CheckoutWizard({ tables = [], paymentMethods = [] }) {
         <p className="text-muted-foreground mb-4">
           No tienes productos en tu carrito.
         </p>
-        <Button asChild>
-          <Link href="/menu">Ver menú</Link>
+        <Button render={<Link href="/menu" />} nativeButton={false}>
+          Ver menú
         </Button>
       </div>
     );

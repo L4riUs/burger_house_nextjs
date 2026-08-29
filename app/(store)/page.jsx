@@ -10,8 +10,8 @@ export default function StoreHomePage() {
           Las mejores hamburguesas de la ciudad. Pide ya en línea.
         </p>
         <div className="flex gap-4">
-          <Button asChild size="lg">
-            <Link href="/menu">Ver Menú</Link>
+          <Button render={<Link href="/menu" />} nativeButton={false} size="lg">
+            Ver Menú
           </Button>
         </div>
       </div>

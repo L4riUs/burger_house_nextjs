@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +38,7 @@ export function RawMaterialForm({
     },
   });
 
-  const { register, handleSubmit, formState: { errors }, setValue, watch, reset } = methods;
+  const { control, handleSubmit, register, formState: { errors }, watch, reset } = methods;
   const categoryId = watch("category_id");
   const unitId = watch("unit_id");
   const supplierId = watch("primary_supplier_id");
@@ -80,22 +80,30 @@ export function RawMaterialForm({
 
       <div className="space-y-4">
         <Label htmlFor="category_id">Categoría *</Label>
-        <Select
-          {...register("category_id")}
-          onValueChange={(value) => setValue("category_id", value)}
-          disabled={isLoading}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Selecciona una categoría" />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.map((cat) => (
-              <SelectItem key={cat.id} value={cat.id}>
-                {cat.name?.es || cat.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Controller
+          name="category_id"
+          control={control}
+          render={({ field }) => (
+            <Select
+              value={field.value ? String(field.value) : undefined}
+              onValueChange={field.onChange}
+              disabled={isLoading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona una categoría">
+                  {selectedCategoryLabel}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id}>
+                    {cat.name?.es || cat.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
         {selectedCategoryLabel && (
           <p className="text-xs text-muted-foreground">Seleccionado: {selectedCategoryLabel}</p>
         )}
@@ -104,22 +112,30 @@ export function RawMaterialForm({
 
       <div className="space-y-4">
         <Label htmlFor="unit_id">Unidad de Medida *</Label>
-        <Select
-          {...register("unit_id")}
-          onValueChange={(value) => setValue("unit_id", value)}
-          disabled={isLoading}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Selecciona una unidad" />
-          </SelectTrigger>
-          <SelectContent>
-            {units.map((unit) => (
-              <SelectItem key={unit.id} value={unit.id}>
-                {unit.name} ({unit.abbreviation})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Controller
+          name="unit_id"
+          control={control}
+          render={({ field }) => (
+            <Select
+              value={field.value ? String(field.value) : undefined}
+              onValueChange={field.onChange}
+              disabled={isLoading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona una unidad">
+                  {selectedUnitLabel}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {units.map((unit) => (
+                  <SelectItem key={unit.id} value={unit.id}>
+                    {unit.name} ({unit.abbreviation})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
         {selectedUnitLabel && (
           <p className="text-xs text-muted-foreground">Seleccionado: {selectedUnitLabel}</p>
         )}
@@ -160,23 +176,31 @@ export function RawMaterialForm({
 
       <div className="space-y-4">
         <Label htmlFor="primary_supplier_id">Proveedor Principal</Label>
-        <Select
-          {...register("primary_supplier_id")}
-          onValueChange={(value) => setValue("primary_supplier_id", value === "" ? null : value)}
-          disabled={isLoading}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Selecciona un proveedor" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">Sin proveedor</SelectItem>
-            {suppliers.map((supplier) => (
-              <SelectItem key={supplier.id} value={supplier.id}>
-                {supplier.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Controller
+          name="primary_supplier_id"
+          control={control}
+          render={({ field }) => (
+            <Select
+              value={field.value ? String(field.value) : undefined}
+              onValueChange={(value) => field.onChange(value === "" ? null : value)}
+              disabled={isLoading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona un proveedor">
+                  {selectedSupplierLabel}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Sin proveedor</SelectItem>
+                {suppliers.map((supplier) => (
+                  <SelectItem key={supplier.id} value={supplier.id}>
+                    {supplier.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
         {selectedSupplierLabel && (
           <p className="text-xs text-muted-foreground">Seleccionado: {selectedSupplierLabel}</p>
         )}

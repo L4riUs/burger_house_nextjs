@@ -102,7 +102,7 @@ export async function createSupplier(formData) {
 
   const parsed = supplierSchema.safeParse(formData);
   if (!parsed.success) {
-    return { error: parsed.error.errors[0].message };
+    return { error: parsed.error.issues[0].message };
   }
 
   const { data, error } = await supabase
@@ -150,7 +150,7 @@ export async function updateSupplier(id, formData) {
 
   const parsed = supplierSchema.safeParse(formData);
   if (!parsed.success) {
-    return { error: parsed.error.errors[0].message };
+    return { error: parsed.error.issues[0].message };
   }
 
   const { data, error } = await supabase

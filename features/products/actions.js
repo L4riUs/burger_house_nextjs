@@ -197,7 +197,7 @@ export async function createProduct(formData) {
 
   const parsed = productSchema.safeParse(formData);
   if (!parsed.success) {
-    return { error: parsed.error.errors[0].message };
+    return { error: parsed.error.issues[0].message };
   }
 
   const { recipe_items, ...productData } = parsed.data;
@@ -275,7 +275,7 @@ export async function updateProduct(id, formData) {
 
   const parsed = productSchema.safeParse(formData);
   if (!parsed.success) {
-    return { error: parsed.error.errors[0].message };
+    return { error: parsed.error.issues[0].message };
   }
 
   const { recipe_items, ...productData } = parsed.data;
