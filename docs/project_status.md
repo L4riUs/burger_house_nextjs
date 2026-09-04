@@ -1,9 +1,9 @@
 # Burger House — Estado del Proyecto
 
-**Última actualización:** 1 de septiembre de 2026  
-**Fase actual:** Fase 7 (Mesas, Reservas y Paquetes de Reservación) — En implementación  
-**Fases completadas:** 0, 1, 2, 3, 4, 5, 6, 9  
-**Fases pendientes:** 7 (en curso), 8, 10, 11
+**Última actualización:** 4 de septiembre de 2026  
+**Fase actual:** Fase 10 (Dashboard, Reportes y Auditoría) — Pendiente  
+**Fases completadas:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9  
+**Fases pendientes:** 10, 11
 
 ---
 
@@ -18,8 +18,8 @@
 | **Fase 4** | ✅ **Completada** | Productos, Recetas, Adicionales y Combos: Products (prepared/retail con campos condicionales), RecipeEditor (validación duplicados), Product Extras (raw_material_id opcional), Combos, imágenes en Supabase Storage, papelera extendida, tests unitarios receta/combo/precio |
 | **Fase 5** | ✅ **Completada** | Tienda pública: Catálogo (server components, is_active), Carrito Zustand persistido (lib/storage.js), Checkout wizard (fulfillment, guest/auth, payment methods seed con TODO fase 8), createOrderDraft server action (stub para fase 6), tests unitarios cart store + checkout Zod |
 | **Fase 6** | ✅ **Completada** | Órdenes unificadas (Pedidos/Cocina/Delivery): createOrder real (conecta checkout + POS interno), State machine pura (features/orders/state-machine.js) con RB-02, RB-01 descuento inventario transaccional al confirmar (recipe_items, retail, extras), order_status_history, Panel Órdenes staff (dual-view/filtros/acciones por estado), Cocina (Realtime kanban), Delivery (tomar entrega con concurrencia WHERE delivery_profile_id IS NULL, marcar entregado), Seguimiento cliente (Realtime), POS interno (reusa createOrder, channel pos/phone, taken_by, búsqueda productos/guest), Tests unitarios exhaustivos: state machine, inventory deduction, idempotency, delivery concurrency, POS order creation |
-| **Fase 7** | 🚧 **En progreso** | Mesas, Reservas y Paquetes: restaurant_tables CRUD + vista mapa/tabla/tarjetas, migración SQL con trigger sync de estado de mesa (occupied/available) + RLS, reservation_packages CRUD (i18n JSONB, price VES vía BCV), reservations CRUD con manejo de exclusion constraint `excl_reservation_overlap` (error amigable), sentar/cancelar reserva, tests unitarios (overlap error + helpers). **Pendiente:** ejecutar `docs/fase7_reservations.sql` en Supabase, registro en Audit de fase 10 |
-| **Fase 8** | ⏳ **Pendiente** | Caja y Finanzas: payment_methods CRUD real, cash_sessions (apertura/cierre con RB-03), financial_transactions (sale/expense/capital_in/out/supplier_payment), cierre de caja (expected vs counted), reporte capital, facturación automática + notas de crédito (RB-04, RB-06), snapshot currency/exchange_rate |
+| **Fase 7** | ✅ **Completada** | Mesas, Reservas y Paquetes: restaurant_tables CRUD + vista mapa/tabla/tarjetas, migración SQL con trigger sync de estado de mesa (occupied/available) + RLS, reservation_packages CRUD (i18n JSONB, price VES vía BCV), reservations CRUD con manejo de exclusion constraint `excl_reservation_overlap` (error amigable), sentar/cancelar reserva, tests unitarios (overlap error + helpers). Registro de auditoría de la fase pendiente para Fase 10 |
+| **Fase 8** | ✅ **Completada** | Caja y Finanzas: payment_methods CRUD real (activo/inactivo), cash_sessions apertura/cierre con arqueo (expected vs counted en VES y USD, RB-03) + historial de cierres paginado, financial_transactions (sale/expense/capital_in/out/supplier_payment) con registro de movimiento, reporte capital (capital_in − capital_out), facturación automática al confirmar pago + listado facturas con detalle y notas de crédito (RB-04, RB-06), snapshot moneda y exchange_rate conforme RB-04. Lógica como funciones puras (`core.js`, `helpers.js`) + 14 tests (cash-close, financial-txn, invoice-credit). **Pendiente:** aplicar `docs/fix_rls_caja_phase8.sql` (RLS) en Supabase |
 | **Fase 9** | ✅ **Completada** | Modo offline POS: lib/offline-queue.js (IndexedDB via idb), detección online/offline (navigator.onLine + listeners), cola pedidos con client_ref/estado/timestamp, sincronización automática al reconectar + botón manual, idempotencia server-side por client_ref (RB-07), pantalla pendientes/conflictos (editar/reintentar/descartar), pedidos offline NO aparecen en panel general/cocina/delivery/caja hasta sincronizar, tests unitarios cola + idempotency + flujo completo |
 | **Fase 10** | ⏳ **Pendiente** | Dashboard, Reportes y Auditoría: KPIs agregados en Supabase (ventas, órdenes, top productos, ticket promedio, caja, alertas stock), export CSV/PDF reusando consultas, audit_log UI (filtros entidad/actor/fecha), completar auditoría faltante de fases anteriores |
 | **Fase 11** | ⏳ **Pendiente** | Pulido y rendimiento: revisión RNF (caché catálogo, Zustand único, paginación, Realtime), auditoría RLS completa, validación Zod cliente+server, estructura por feature, inventario tests lógica crítica, performance queries + índices, validación alcance offline Fase 9 |
@@ -46,7 +46,7 @@
 app/
   (auth)/          # Login, register, reset, forgot password
   (store)/         # Tienda pública (menu, cart, checkout)
-  admin/           # Panel admin (users, inventory, products, orders, POS, offline-queue)
+  admin/           # Panel admin (users, inventory, products, orders, caja, POS, offline-queue)
   api/             # Route handlers (debug, suppliers check-usage)
   rastreo/[orderNumber]/  # Seguimiento de órdenes para clientes
   cocina/          # Vista cocina
@@ -57,6 +57,7 @@ features/
   raw-materials/   # Materias primas
   suppliers/       # Proveedores
   inventario/      # Movimientos, Kardex, StockAlertWidget
+  caja/            # Caja y finanzas (core, helpers, actions, schemas)
   products/        # Productos, RecipeEditor
   combos/          # Combos
   product-extras/  # Adicionales
@@ -91,11 +92,23 @@ components/
 | Idempotencia createOrder | `features/orders/actions.js` | `features/orders/__tests__/idempotency.test.js` |
 | Concurrencia delivery | `features/orders/actions.js` | `features/orders/__tests__/assign-delivery-concurrency.test.js` |
 | Creación orden POS | `features/orders/pos/store.js` + actions | `features/orders/__tests__/pos-order-creation.test.js` |
+| Cierre de caja (arqueo) | `features/caja/core.js` | `features/caja/__tests__/cash-close.test.js` |
+| Transacciones financieras | `features/caja/core.js` + `helpers.js` | `features/caja/__tests__/financial-txn.test.js` |
+| Facturación / notas de crédito | `features/caja/core.js` + `helpers.js` | `features/caja/__tests__/invoice-credit.test.js` |
 
 ### Implementaciones Realtime
 - **Cocina** (`features/kitchen/components/KitchenKanban.jsx`): Suscribe a cambios en `orders` (confirmed/in_kitchen), actualiza columnas kanban sin polling
 - **Delivery** (`features/delivery/components/DeliveryList.jsx`): Suscribe a `orders` (ready + fulfillment_type=delivery), maneja "tomar entrega" con actualización optimista + confirmación servidor
 - **Seguimiento Orden** (`features/orders/tracking/page.jsx`): Actualizaciones realtime de estado para cliente
+
+### Base UI: patrón `render` (shadcn `base`), no `asChild`
+- Los componentes shadcn del repo usan **Base UI**; `asChild` es API de Radix y **se ignora**, provocando DOM inválido (ej. `<button>` anidado en triggers de menús/popovers → hydration error).
+- Regla del proyecto: usar `render={<Elemento/>}` en triggers y composición (fuente: `.agents/skills/shadcn/rules/base-vs-radix.md`). Corregido en: `table-row-actions.jsx`, `OrderStatusActions.jsx`, `OrderCards.jsx`, `PosOrderBuilder.jsx`, `nav-user.jsx`.
+- Cuando `render` convierte el trigger en elemento no-botón (`<a>`, `<span>`), añadir `nativeButton={false}`.
+
+### Paginación compartida funcional
+- Los primitivos `components/ui/pagination.jsx` (Base UI) **ignoran** `currentPage`/`totalPages`/`onPageChange`, así que la paginación de varias páginas nunca se renderizó.
+- Se creó `components/shared/pagination-control.jsx` (usa `MenuClient`/primitivos) y se migraron: caja (sesion, movimientos, facturas), orders y movimientos/kardex de inventario.
 
 ### Arquitectura Offline (Fase 9)
 - **Cola**: `lib/offline-queue.js` usando `idb` (IndexedDB) — guarda payload completo + `client_ref` (UUID) + estado local (`pending_sync`/`synced`/`conflict`)
@@ -161,6 +174,16 @@ components/
 - [ ] Intento sync duplicado (mismo client_ref) → NO crea orden duplicada
 - [ ] Test conflicto: desactivar producto en orden offline → reconectar → item marcado 'conflict' → UI permite editar/reintentar/descartar
 
+### Caja y Finanzas (Fase 8)
+- [ ] Métodos de pago: CRUD real (crear/editar/activar-desactivar), aplica a checkout
+- [ ] Apertura de caja: crear cash_session con monto inicial
+- [ ] Registrar movimiento (expense/capital_in/capital_out/supplier_payment): válida sesión y proveedor opcional, aparece en movimientos
+- [ ] Cierre de caja: arqueo expected vs counted por efectivo (VES y USD), diferencia calculada, bloquea cobros efectivo sin sesión abierta (RB-03)
+- [ ] Historial de cierres en Sesión: tabla paginada (fecha, esperado/contado/diferencia, quien abrió/cerró)
+- [ ] Facturación: confirmar pago genera factura; lista de facturas con "Ver factura" (detalle con cliente/perfil embebidos correctamente)
+- [ ] Nota de crédito: generar desde factura (RB-04, RB-06)
+- [ ] Reporte Capital: muestra capital_in − capital_out con snapshot moneda/tasa (RB-04)
+
 ---
 
 ## TODOs / Stubs Conocidos para Fases Futuras
@@ -170,12 +193,15 @@ components/
 | `features/raw-materials/components/RawMaterialForm.jsx` | Selector `primary_supplier_id` (completado Fase 3) | — |
 | `features/inventario/components/MovementForm.jsx` | Selector producto retail (completado Fase 4) | — |
 | `features/checkout/actions.js` | Stub `createOrderDraft` → reemplazado por `createOrder` real Fase 6 | — |
-| `features/checkout/schemas.js` | Payment methods sembrados (TODO: CRUD real Fase 8) | Fase 8 |
+| `features/checkout/schemas.js` | Payment methods sembrados → CRUD real completado Fase 8 | — |
 | `lib/config.js` | Constante `ALLOW_NEGATIVE_STOCK` (bloqueo/advertencia configurable) | Fase 6 (hecho) |
-| `lib/bcv.js` | Integración tasa de cambio (stub) | Fase 10/11 |
+| `lib/bcv.js` | Integración tasa de cambio (stub; caja usa snapshot conservado) | Fase 10/11 |
 | `features/orders/actions.js` | Check idempotencia `client_ref` (implementado Fase 9) | — |
 | `app/admin/page.jsx` | Dashboard KPIs (stub) | Fase 10 |
-| `features/trash/` | Extender a products, combos (hecho Fase 4) | — |
+| `docs/fix_rls_caja_phase8.sql` | Aplicar en Supabase para habilitar RLS de caja (payment_methods, cash_sessions, financial_transactions, invoices/credit_notes) | Fase 8 (DB) |
+| `features/inventario/actions.js` | `listInventoryMovements` sin soporte `search` → el buscador de MovementFilters no está conectado | Pendiente |
+| `features/caja/core.js` | Decidir si ventas cobradas suman al balance de Capital (hoy solo `capital_in − capital_out`) | Pendiente |
+| Suites `offline-queue`, `assign-delivery-concurrency`, `idempotency`, `inventory-deduction` | 4 suites de tests rotas preexistentes por refactor de imports/mocks (verificar y reparar) | Pendiente |
 
 ---
 
@@ -203,18 +229,22 @@ Ejecutar: `npm test`
 | `features/orders/__tests__/pos-order-creation.test.js` | POS crea orden con channel/taken_by, reusa createOrder |
 | `features/reservations/__tests__/overlap-error.test.js` | Parsea error exclusion constraint `23P01`/`excl_reservation_overlap` → mensaje amigable |
 | `features/reservations/__tests__/helpers.test.js` | canSeat/canEdit/canCancel + getCustomerName |
+| `features/caja/__tests__/cash-close.test.js` | 8 casos: expected vs counted (VES/USD), diferencia, bloqueo de cierre, RB-03 |
+| `features/caja/__tests__/financial-txn.test.js` | 2 casos: snapshot moneda/tasa, reglas de transacción |
+| `features/caja/__tests__/invoice-credit.test.js` | 4 casos: facturación automática, notas de crédito (RB-04/RB-06) |
+
+> **Nota:** 4 suites heredadas están rotas por refactor de imports/mocks (`offline-queue`, `assign-delivery-concurrency`, `idempotency`, `inventory-deduction`). Los tests de las fases 0–8 pasan; caja tiene 14/14. Ver TODOs.
 
 ---
 
-## Próximos Pasos (Fase 7)
+## Próximos Pasos (hacia Fase 10)
 
-Según prompt `FASES_PROMPTS.md` Fase 7, el siguiente trabajo incluye:
-1. **Ejecutar `docs/fase7_reservations.sql`** en el SQL Editor de Supabase (trigger `sync_table_status_for_orders` + políticas RLS)
-2. **"Sentar" reserva a nivel DB**: verificar que estatus 'seated' + creación de orden dine_in marquen la mesa 'occupied' correctamente en conjunto con el trigger
-3. **CRUD `reservation_packages`** — implementado (i18n JSONB, price_ves vía BCV, mesas embebidas)
-4. **CRUD `reservations`** — implementado (manejo error `excl_reservation_overlap` con mensaje claro)
-5. **"Sentar" reserva**: botón para reservation='seated' — implementado
-6. **Test unitario**: test estilo integración para manejo error solapamiento — implementado
+1. **Aplicar SQL pendiente en Supabase**: `docs/fix_rls_caja_phase8.sql` (RLS de caja)
+2. **Decidir regla de negocio**: si las ventas cobradas suman al balance de Capital (hoy muestra solo capital_in − capital_out)
+3. **Conectar búsqueda por ítem** en `listInventoryMovements` (el buscador de MovementFilters aún no filtra)
+4. **Reparar 4 suites de tests rotas** (offline-queue, delivery concurrency, idempotency, inventory-deduction)
+5. **Registrar auditoría (audit_log) de fases 7 y 8** como parte del ciclo de Fase 10
+6. **Iniciar Fase 10**: KPIs agregados en Supabase, reportes CSV/PDF, audit_log UI, completar audit de fases anteriores
 
 ---
 
