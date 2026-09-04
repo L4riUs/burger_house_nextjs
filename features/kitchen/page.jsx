@@ -6,7 +6,7 @@ import { KitchenKanban } from "./components/KitchenKanban";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 
 const KITCHEN_STATUSES = ['confirmed', 'in_kitchen', 'ready'];
 
@@ -14,6 +14,7 @@ export default function KitchenPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const { toastSuccess, toastError, toastInfo } = useToast();
 
   const fetchOrders = async () => {
     const supabase = createClient();
@@ -41,7 +42,7 @@ export default function KitchenPage() {
       .order('created_at', { ascending: true });
 
     if (error) {
-      toast.error("Error cargando órdenes: " + error.message);
+      toastError("Error cargando órdenes: " + error.message);
     } else {
       setOrders(data || []);
     }
@@ -69,7 +70,7 @@ export default function KitchenPage() {
               if (prev.some(o => o.id === newOrder.id)) return prev;
               return [...prev, newOrder].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
             });
-            toast.info(`Nueva orden #${newOrder.order_number} recibida`);
+            toastInfo(`Nueva orden #${newOrder.order_number} recibida`);
           } else if (payload.eventType === 'UPDATE') {
             const updatedOrder = payload.new;
             if (!KITCHEN_STATUSES.includes(updatedOrder.status)) {
@@ -94,7 +95,7 @@ export default function KitchenPage() {
 
   const handleRefresh = () => {
     fetchOrders();
-    toast.success("Órdenes actualizadas");
+    toastSuccess("Órdenes actualizadas");
   };
 
   const getStatusConfig = (status) => {

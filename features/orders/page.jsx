@@ -6,11 +6,10 @@ import { listOrders } from "./actions";
 import { OrderTable } from "./components/OrderTable";
 import { OrderCards } from "./components/OrderCards";
 import { OrderFilters } from "./components/OrderFilters";
-import { Pagination } from "@/components/ui/pagination";
+import { PaginationControl } from "@/components/shared/pagination-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Filter, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { LayoutGridIcon, ListIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
 
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pendiente' },
@@ -42,27 +41,41 @@ export default function OrdersPage() {
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('table');
-  const [filters, setFilters] = useState({
-    status: [],
-    fulfillment_type: [],
-    channel: [],
-    date_from: '',
-    date_to: '',
-    search: '',
-  });
 
-  const fetchOrders = async () => {
+  // Los filtros derivados SIEMPRE de la URL (fuente de verdad) para no duplicar
+  // estado y evitar dobles fetch por referencias inestables.
+  const statuses = searchParams.getAll('status');
+  const fulfillments = searchParams.getAll('fulfillment_type');
+  const channels = searchParams.getAll('channel');
+  const page = parseInt(searchParams.get('page') || '1');
+  const search = searchParams.get('search') || '';
+  const date_from = searchParams.get('date_from') || '';
+  const date_to = searchParams.get('date_to') || '';
+
+  const filters = {
+    status: statuses,
+    fulfillment_type: fulfillments,
+    channel: channels,
+    date_from,
+    date_to,
+    search,
+  };
+
+  const filterKey = `${page}|${statuses.join(",")}|${fulfillments.join(",")}|${channels.join(",")}|${date_from}|${date_to}|${search}`;
+  const pageSize = pagination.pageSize;
+
+  const fetchOrders = useCallback(async () => {
     setLoading(true);
     const params = {
-      page: pagination.page,
-      pageSize: pagination.pageSize,
+      page,
+      pageSize,
       ...filters,
-      status: filters.status.length ? filters.status : undefined,
-      fulfillment_type: filters.fulfillment_type.length ? filters.fulfillment_type : undefined,
-      channel: filters.channel.length ? filters.channel : undefined,
-      date_from: filters.date_from || undefined,
-      date_to: filters.date_to || undefined,
-      search: filters.search || undefined,
+      status: statuses.length ? statuses : undefined,
+      fulfillment_type: fulfillments.length ? fulfillments : undefined,
+      channel: channels.length ? channels : undefined,
+      date_from: date_from || undefined,
+      date_to: date_to || undefined,
+      search: search || undefined,
     };
 
     const result = await listOrders(params);
@@ -72,41 +85,21 @@ export default function OrdersPage() {
       setOrders(result.data);
       setPagination(prev => ({
         ...prev,
+        page,
         total: result.pagination.total,
         totalPages: result.pagination.totalPages,
       }));
     }
     setLoading(false);
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pageSize, filterKey]);
 
   useEffect(() => {
-    const status = searchParams.getAll('status');
-    const fulfillment = searchParams.getAll('fulfillment_type');
-    const channel = searchParams.getAll('channel');
-    const page = parseInt(searchParams.get('page') || '1');
-    const search = searchParams.get('search') || '';
-    const date_from = searchParams.get('date_from') || '';
-    const date_to = searchParams.get('date_to') || '';
-
-    setFilters(prev => ({
-      ...prev,
-      status,
-      fulfillment_type: fulfillment,
-      channel,
-      search,
-      date_from,
-      date_to,
-    }));
-    setPagination(prev => ({ ...prev, page }));
-  }, [searchParams]);
-
-  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchOrders();
-  }, [pagination.page, filters]);
+  }, [fetchOrders]);
 
   const handleFilterChange = useCallback((newFilters) => {
-    setFilters(newFilters);
-    setPagination(prev => ({ ...prev, page: 1 }));
     const params = new URLSearchParams();
     if (newFilters.status.length) newFilters.status.forEach(s => params.append('status', s));
     if (newFilters.fulfillment_type.length) newFilters.fulfillment_type.forEach(f => params.append('fulfillment_type', f));
@@ -118,14 +111,9 @@ export default function OrdersPage() {
   }, [router]);
 
   const handlePageChange = (page) => {
-    setPagination(prev => ({ ...prev, page }));
     const params = new URLSearchParams(searchParams.toString());
     params.set('page', page.toString());
     router.push(`/admin/orders?${params.toString()}`, { scroll: false });
-  };
-
-  const handleViewModeChange = (mode) => {
-    setViewMode(mode);
   };
 
   return (
@@ -136,11 +124,28 @@ export default function OrdersPage() {
           <p className="text-muted-foreground">Gestión unificada de pedidos, cocina y delivery</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={fetchOrders} disabled={loading}>
-            <Loader2 className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          <div className="flex items-center gap-2">
+            <Button
+              variant={viewMode === "table" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("table")}
+            >
+              <ListIcon className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === "cards" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("cards")}
+            >
+              <LayoutGridIcon className="h-4 w-4" />
+            </Button>
+          </div>
+          <Button variant="outline" size="sm" onClick={fetchOrders} disabled={loading}>
+            <RefreshCwIcon className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Actualizar
           </Button>
           <Button onClick={() => router.push("/admin/pos")}>
-            <Plus className="h-4 w-4 mr-2" />
+            <PlusIcon className="h-4 w-4 mr-2" />
             Nueva Orden
           </Button>
         </div>
@@ -154,56 +159,45 @@ export default function OrdersPage() {
         channelOptions={CHANNEL_OPTIONS}
       />
 
-      <Tabs value={viewMode} onValueChange={handleViewModeChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 max-w-xs">
-          <TabsTrigger value="table">Tabla</TabsTrigger>
-          <TabsTrigger value="cards">Tarjetas</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="table" className="mt-4">
-          {loading ? (
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full" />
-              ))}
-            </div>
-          ) : (
-            <>
-              <OrderTable orders={orders} />
-              {pagination.totalPages > 1 && (
-                <Pagination
-                  className="mt-4 justify-center"
-                  currentPage={pagination.page}
-                  totalPages={pagination.totalPages}
-                  onPageChange={handlePageChange}
-                />
-              )}
-            </>
+      {loading ? (
+        viewMode === "table" ? (
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {[...Array(8)].map((_, i) => (
+              <Skeleton key={i} className="h-48 w-full" />
+            ))}
+          </div>
+        )
+      ) : viewMode === "table" ? (
+        <>
+          <OrderTable orders={orders} onRefresh={fetchOrders} />
+          {pagination.totalPages > 1 && (
+            <PaginationControl
+              className="mt-4 justify-center"
+              page={pagination.page}
+              totalPages={pagination.totalPages}
+              onPageChange={handlePageChange}
+            />
           )}
-        </TabsContent>
-
-        <TabsContent value="cards" className="mt-4">
-          {loading ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {[...Array(8)].map((_, i) => (
-                <Skeleton key={i} className="h-48 w-full" />
-              ))}
-            </div>
-          ) : (
-            <>
-              <OrderCards orders={orders} />
-              {pagination.totalPages > 1 && (
-                <Pagination
-                  className="mt-4 justify-center"
-                  currentPage={pagination.page}
-                  totalPages={pagination.totalPages}
-                  onPageChange={handlePageChange}
-                />
-              )}
-            </>
+        </>
+      ) : (
+        <>
+          <OrderCards orders={orders} onRefresh={fetchOrders} />
+          {pagination.totalPages > 1 && (
+            <PaginationControl
+              className="mt-4 justify-center"
+              page={pagination.page}
+              totalPages={pagination.totalPages}
+              onPageChange={handlePageChange}
+            />
           )}
-        </TabsContent>
-      </Tabs>
+        </>
+      )}
 
       <div className="text-sm text-muted-foreground text-center">
         Mostrando {orders.length} de {pagination.total} órdenes

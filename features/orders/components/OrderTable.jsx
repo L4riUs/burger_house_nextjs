@@ -4,14 +4,22 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Eye, ChevronLeft, ChevronRight } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { getStatusLabel, getStatusColor, getValidTransitions } from "../state-machine";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { MoreHorizontalIcon, Eye } from "lucide-react";
+import { getStatusLabel, getStatusColor } from "../state-machine";
 import { OrderStatusActions } from "./OrderStatusActions";
 import { OrderDetailDialog } from "./OrderDetailDialog";
 import { useState } from "react";
 
-export function OrderTable({ orders }) {
+export function OrderTable({ orders, onRefresh }) {
   const [selectedOrder, setSelectedOrder] = useState(null);
 
   const formatCurrency = (amount) => {
@@ -61,72 +69,75 @@ export function OrderTable({ orders }) {
   }
 
   return (
-    <div className="rounded-md border">
-      <div className="overflow-x-auto">
-        <table className="w-full caption-bottom text-sm">
-          <thead className="[&_tr]:border-b">
-            <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-              <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Orden</th>
-              <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Cliente</th>
-              <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Tipo</th>
-              <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Canal</th>
-              <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Total</th>
-              <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Estado</th>
-              <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Fecha</th>
-              <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="[&_tr:last-child]:border-0">
-            {orders.map((order) => (
-              <tr key={order.id} className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted cursor-pointer" onClick={() => setSelectedOrder(order)}>
-                <td className="p-4 align-middle font-mono text-sm">
-                  #{order.order_number}
-                </td>
-                <td className="p-4 align-middle">
-                  <div className="font-medium">{getCustomerName(order)}</div>
-                  {getCustomerPhone(order) && (
-                    <div className="text-sm text-muted-foreground">{getCustomerPhone(order)}</div>
-                  )}
-                </td>
-                <td className="p-4 align-middle">
-                  <Badge variant="secondary">{getFulfillmentLabel(order.fulfillment_type)}</Badge>
-                </td>
-                <td className="p-4 align-middle">
-                  <Badge variant="outline">{getChannelLabel(order.channel)}</Badge>
-                </td>
-                <td className="p-4 align-middle font-medium tabular-nums">
-                  {formatCurrency(order.total_ves)}
-                </td>
-                <td className="p-4 align-middle">
-                  <Badge className={getStatusColor(order.status)}>
-                    {getStatusLabel(order.status)}
-                  </Badge>
-                </td>
-                <td className="p-4 align-middle text-sm text-muted-foreground">
-                  {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm', { locale: es })}
-                </td>
-                <td className="p-4 align-middle text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Más opciones</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem asChild onClick={(e) => { e.preventDefault(); setSelectedOrder(order); }}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        Ver detalle
-                      </DropdownMenuItem>
-                      <OrderStatusActions order={order} />
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <>
+      <Card>
+        <CardContent className="pt-6">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Orden</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Canal</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead className="text-right">Opciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {orders.map((order) => (
+                <TableRow key={order.id}>
+                  <TableCell className="font-mono text-sm">
+                    #{order.order_number}
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-medium">{getCustomerName(order)}</div>
+                    {getCustomerPhone(order) && (
+                      <div className="text-sm text-muted-foreground">{getCustomerPhone(order)}</div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{getFulfillmentLabel(order.fulfillment_type)}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{getChannelLabel(order.channel)}</Badge>
+                  </TableCell>
+                  <TableCell className="font-medium tabular-nums">
+                    {formatCurrency(order.total_ves)}
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={getStatusColor(order.status)}>
+                      {getStatusLabel(order.status)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {format(new Date(order.created_at), 'dd/MM/yyyy HH:mm', { locale: es })}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="outline" size="sm" onClick={() => setSelectedOrder(order)}>
+                      <Eye className="mr-1 h-4 w-4" />
+                      Ver detalle
+                    </Button>
+                  </TableCell>
+                  <TableCell>
+                    <OrderStatusActions
+                      order={order}
+                      onRefresh={onRefresh}
+                      trigger={
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontalIcon className="h-4 w-4" />
+                          <span className="sr-only">Acciones</span>
+                        </Button>
+                      }
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       {selectedOrder && (
         <OrderDetailDialog
@@ -134,6 +145,6 @@ export function OrderTable({ orders }) {
           onClose={() => setSelectedOrder(null)}
         />
       )}
-    </div>
+    </>
   );
 }

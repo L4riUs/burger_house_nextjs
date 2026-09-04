@@ -20,7 +20,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LayoutGridIcon, ListIcon, PlusIcon, RefreshCwIcon, SearchIcon, FilterIcon } from "lucide-react";
+import { PaginationControl } from "@/components/shared/pagination-control";
+import { PlusIcon, RefreshCwIcon } from "lucide-react";
 
 export default function MovimientosPage() {
   const { toastSuccess, toastError } = useToast();
@@ -68,11 +69,37 @@ export default function MovimientosPage() {
     setMovements(result.data || []);
     setPagination(result.pagination);
     setLoading(false);
-  }, [page, filters]);
+  }, [page, filters.itemType, filters.itemId, filters.movementType, filters.dateFrom, filters.dateTo]);
 
   useEffect(() => {
-    fetchMovements();
-  }, [fetchMovements]);
+    let cancelled = false;
+    async function run() {
+      setLoading(true);
+      const params = {
+        page,
+        pageSize: 20,
+        itemType: filters.itemType === "all" ? undefined : filters.itemType,
+        itemId: filters.itemId || undefined,
+        movementType: filters.movementType === "all" ? undefined : filters.movementType,
+        dateFrom: filters.dateFrom || undefined,
+        dateTo: filters.dateTo || undefined,
+      };
+
+      const result = await listInventoryMovements(params);
+
+      if (!cancelled) {
+        if (result.error) {
+          console.error(result.error);
+        } else {
+          setMovements(result.data || []);
+          setPagination(result.pagination);
+        }
+        setLoading(false);
+      }
+    }
+    run();
+    return () => { cancelled = true; };
+  }, [page, filters.itemType, filters.itemId, filters.movementType, filters.dateFrom, filters.dateTo]);
 
   useEffect(() => {
     const fetchLookups = async () => {
@@ -139,65 +166,43 @@ export default function MovimientosPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-4">
-        <div className="lg:col-span-3 space-y-6">
-          <MovementFilters
-            filters={filters}
-            onFiltersChange={handleFiltersChange}
-            hasFilters={hasFilters}
-          />
+      <StockAlertWidget 
+        materials={rawMaterials} 
+        maxItems={10}
+      />
 
-          {loading ? (
-            <div className="space-y-4">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          ) : (
-            <MovementTable
-              movements={movements}
-            />
-          )}
+      <MovementFilters
+        filters={filters}
+        onFiltersChange={handleFiltersChange}
+        hasFilters={hasFilters}
+      />
 
-          {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                Mostrando {(pagination.page - 1) * pagination.pageSize + 1} a{" "}
-                {Math.min(pagination.page * pagination.pageSize, pagination.total)} de{" "}
-                {pagination.total} movimientos
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage(page - 1)}
-                >
-                  Anterior
-                </Button>
-                <span className="text-sm">
-                  Página {pagination.page} de {pagination.totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= pagination.totalPages}
-                  onClick={() => setPage(page + 1)}
-                >
-                  Siguiente
-                </Button>
-              </div>
-            </div>
-          )}
+      {loading ? (
+        <div className="space-y-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
         </div>
+      ) : (
+        <MovementTable
+          movements={movements}
+        />
+      )}
 
-        <div className="lg:col-span-1">
-          <StockAlertWidget 
-            materials={rawMaterials} 
-            maxItems={10}
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {(pagination.page - 1) * pagination.pageSize + 1} a{" "}
+            {Math.min(pagination.page * pagination.pageSize, pagination.total)} de{" "}
+            {pagination.total} movimientos
+          </p>
+          <PaginationControl
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            onPageChange={setPage}
           />
         </div>
-      </div>
+      )}
 
       {formOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

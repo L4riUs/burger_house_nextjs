@@ -36,10 +36,22 @@ import {
   SandwichIcon,
   PlusCircleIcon,
   GiftIcon,
+  CalendarDaysIcon,
+  PackageOpenIcon,
   AlertTriangle,
   WifiOff,
+  WalletIcon,
+  LockIcon,
+  CreditCardIcon,
+  ArrowLeftRightIcon,
+  TrendingUpIcon,
+  ReceiptIcon,
 } from "lucide-react";
 import { isOwnerOrAdmin } from "@/features/auth/role-logic";
+
+function isCajeroOrAbove(role) {
+  return ["owner", "admin", "cajero"].includes(role);
+}
 import { getPendingSyncCount, getConflictCount } from "@/lib/offline-queue";
 
 const NAV_GROUPS = [
@@ -55,8 +67,22 @@ const NAV_GROUPS = [
       { title: "Órdenes", href: "/admin/orders", icon: ClipboardListIcon },
       { title: "POS / Nueva Orden", href: "/admin/pos", icon: PlusCircleIcon },
       { title: "Mesas", href: "/admin/tables", icon: TableIcon },
+      { title: "Reservas", href: "/admin/reservas", icon: CalendarDaysIcon },
+      { title: "Paquetes de Reservación", href: "/admin/paquetes-reservacion", icon: PackageOpenIcon },
       { title: "Menú", href: "/admin/menu", icon: UtensilsIcon },
       { title: "Cola Offline", href: "/admin/offline-queue", icon: AlertTriangle, badge: true },
+    ],
+  },
+  {
+    label: "Caja",
+    cajeroOnly: true,
+    items: [
+      { title: "Caja", href: "/admin/caja", icon: WalletIcon },
+      { title: "Sesión de Caja", href: "/admin/caja/sesion", icon: LockIcon },
+      { title: "Métodos de Pago", href: "/admin/caja/metodos-pago", icon: CreditCardIcon, adminOnly: true },
+      { title: "Movimientos", href: "/admin/caja/movimientos", icon: ArrowLeftRightIcon },
+      { title: "Facturas", href: "/admin/caja/facturas", icon: ReceiptIcon },
+      { title: "Capital", href: "/admin/caja/capital", icon: TrendingUpIcon, adminOnly: true },
     ],
   },
   {
@@ -114,7 +140,11 @@ export function AppSidebar({ user, profile, ...props }) {
       }
       return item;
     }),
-  })).filter((group) => group.items.length > 0);
+  })).filter((group) => {
+    if (group.items.length === 0) return false;
+    if (group.cajeroOnly && !isCajeroOrAbove(role)) return false;
+    return true;
+  });
 
   const navUser = user && profile
     ? {

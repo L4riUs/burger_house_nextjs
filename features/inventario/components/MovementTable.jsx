@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -64,8 +64,9 @@ export function MovementTable({ movements, onViewDetails }) {
   }
 
   return (
-    <div className="rounded-md border">
-      <Table>
+    <Card>
+      <CardContent className="pt-6">
+        <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Fecha</TableHead>
@@ -124,6 +125,7 @@ export function MovementTable({ movements, onViewDetails }) {
           ))}
         </TableBody>
       </Table>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

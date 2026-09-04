@@ -80,12 +80,17 @@ export const usePosStore = create(
     (set, get) => ({
       items: [],
       channel: 'pos',
-      customerType: 'guest',
+      // 'anonymous' = pedido mostrador sin datos de cliente (genera guest genérico)
+      customerType: 'anonymous',
       customer: null,
       paymentMethodId: null,
+      // Comprobante de pago (métodos que NO son efectivo)
+      paymentProof: null,
+      paymentProofReceiptPath: null,
       notes: '',
       tableId: null,
       deliveryAddress: '',
+      fulfillmentType: 'pickup',
 
       addProduct: (product, quantity = 1, extras = []) => {
         const existingItem = get().items.find(
@@ -164,18 +169,25 @@ export const usePosStore = create(
       setChannel: (channel) => set({ channel }),
       setCustomerType: (type) => set({ customerType: type }),
       setCustomer: (customer) => set({ customer }),
-      setPaymentMethod: (id) => set({ paymentMethodId: id }),
+      setPaymentMethod: (id) => set({ paymentMethodId: id, paymentProof: null, paymentProofReceiptPath: null }),
+      setPaymentProof: (proof) => set({ paymentProof: proof }),
+      setPaymentProofReceiptPath: (path) => set({ paymentProofReceiptPath: path }),
       setNotes: (notes) => set({ notes }),
       setTableId: (id) => set({ tableId: id }),
       setDeliveryAddress: (address) => set({ deliveryAddress: address }),
+      setFulfillmentType: (type) => set({ fulfillmentType: type }),
 
       clearOrder: () => set({
         items: [],
+        customerType: 'anonymous',
         customer: null,
         paymentMethodId: null,
+        paymentProof: null,
+        paymentProofReceiptPath: null,
         notes: '',
         tableId: null,
         deliveryAddress: '',
+        fulfillmentType: 'pickup',
       }),
 
       getItemCount: () =>
@@ -211,17 +223,53 @@ export const usePosStore = create(
           };
         });
 
+        // Determinar guest_customer según tipo:
+        // 'anonymous' → guest genérico 'Cliente mostrador' (reutilizable, sin duplicar)
+        // 'guest'     → datos capturados por el cajero, o un guest existente reutilizado
+        // 'authenticated' → profile_id, sin guest
+        let resolvedCustomerType = 'guest';
+        let resolvedProfileId = null;
+        let resolvedGuestCustomer = null;
+        let resolvedGuestCustomerId = null;
+
+        if (state.customerType === 'authenticated') {
+          resolvedCustomerType = 'authenticated';
+          resolvedProfileId = state.customer?.id || null;
+        } else if (state.customerType === 'anonymous') {
+          resolvedCustomerType = 'guest';
+          resolvedGuestCustomer = { full_name: 'Cliente mostrador', phone: '-' };
+        } else {
+          // 'guest' con datos capturados, o un guest existente reutilizable
+          resolvedCustomerType = 'guest';
+          if (state.customer?.id) {
+            // Guest existente seleccionado del buscador de clientes → reutilizar su id
+            resolvedGuestCustomerId = state.customer.id;
+            resolvedGuestCustomer = {
+              full_name: state.customer.full_name,
+              phone: state.customer.phone,
+              address: state.customer.address || null,
+            };
+          } else {
+            resolvedGuestCustomer = state.customer || { full_name: 'Cliente mostrador', phone: '-' };
+          }
+        }
+
         return {
-          fulfillment_type: state.deliveryAddress ? 'delivery' : state.tableId ? 'dine_in' : 'pickup',
+          fulfillment_type: state.fulfillmentType
+            || (state.deliveryAddress ? 'delivery' : state.tableId ? 'dine_in' : 'pickup'),
           table_id: state.tableId,
           delivery_address: state.deliveryAddress,
           currency: 'VES',
           exchange_rate: 1,
           cart_items: cartItems,
-          customer_type: state.customerType,
-          profile_id: state.customerType === 'authenticated' ? state.customer?.id : null,
-          guest_customer: state.customerType === 'guest' ? state.customer : null,
+          customer_type: resolvedCustomerType,
+          profile_id: resolvedProfileId,
+          guest_customer: resolvedGuestCustomer,
+          guest_customer_id: resolvedGuestCustomerId,
           payment_method_id: state.paymentMethodId,
+          payment_proof: state.paymentProof
+            ? { ...state.paymentProof, receipt_path: state.paymentProofReceiptPath }
+            : null,
           channel: state.channel,
           notes: state.notes,
         };

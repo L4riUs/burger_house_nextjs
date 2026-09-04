@@ -9,7 +9,7 @@ import { assignDeliveryDriver, completeDelivery } from "@/features/orders/action
 import { getStatusLabel, getStatusColor } from "@/features/orders/state-machine";
 import { useTransition } from "react";
 import { Loader2, Truck, MapPin, User, CheckCircle, AlertCircle, Clock, Package } from "lucide-react";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 const STATUS_CONFIG = {
@@ -22,34 +22,35 @@ const STATUS_ORDER = ['ready', 'out_for_delivery'];
 export function DeliveryList({ orders, onRefresh }) {
   const [isPending, startTransition] = useTransition();
   const [pendingOrderId, setPendingOrderId] = useState(null);
+  const { toastSuccess, toastError } = useToast();
 
   const ordersByStatus = STATUS_ORDER.reduce((acc, status) => {
     acc[status] = orders.filter(o => o.status === status);
     return acc;
   }, {});
 
-  const handleTakeDelivery = async (orderId) => {
+const handleTakeDelivery = async (orderId) => {
     setPendingOrderId(orderId);
     startTransition(async () => {
       const result = await assignDeliveryDriver(orderId);
       if (result.error) {
-        toast.error(result.error);
+        toastError(result.error);
       } else {
-        toast.success("Entrega asignada correctamente");
+        toastSuccess("Entrega asignada correctamente");
         onRefresh();
       }
       setPendingOrderId(null);
     });
   };
 
-  const handleCompleteDelivery = async (orderId) => {
+const handleCompleteDelivery = async (orderId) => {
     setPendingOrderId(orderId);
     startTransition(async () => {
       const result = await completeDelivery(orderId);
       if (result.error) {
-        toast.error(result.error);
+        toastError(result.error);
       } else {
-        toast.success("Entrega completada");
+        toastSuccess("Entrega completada");
         onRefresh();
       }
       setPendingOrderId(null);

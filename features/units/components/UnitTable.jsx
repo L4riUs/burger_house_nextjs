@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableRowActions } from "@/components/shared/table-row-actions";
 import { EditIcon, TrashIcon } from "lucide-react";
 
 const UNIT_TYPE_LABELS = {
@@ -28,53 +29,44 @@ export function UnitTable({ units, onEdit, onDelete }) {
   }
 
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Nombre</TableHead>
-            <TableHead>Abreviatura</TableHead>
-            <TableHead>Tipo</TableHead>
-            <TableHead>Factor Conversión</TableHead>
-            <TableHead>Base</TableHead>
-            <TableHead className="text-right">Acciones</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {units.map((unit) => (
-            <TableRow key={unit.id}>
-              <TableCell className="font-medium">{unit.name}</TableCell>
-              <TableCell className="font-mono">{unit.abbreviation}</TableCell>
-              <TableCell>
-                <Badge variant="secondary">{UNIT_TYPE_LABELS[unit.unit_type] || unit.unit_type}</Badge>
-              </TableCell>
-              <TableCell className="font-mono">{Number(unit.conversion_factor).toLocaleString()}</TableCell>
-              <TableCell>
-                {unit.is_base_unit && <Badge variant="default">Base</Badge>}
-              </TableCell>
-              <TableCell className="text-right">
-                <div className="flex items-center justify-end gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onEdit(unit)}
-                  >
-                    <EditIcon className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onDelete(unit)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </Button>
-                </div>
-              </TableCell>
+    <Card>
+      <CardContent className="pt-6">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nombre</TableHead>
+              <TableHead>Abreviatura</TableHead>
+              <TableHead>Tipo</TableHead>
+              <TableHead>Factor Conversión</TableHead>
+              <TableHead>Base</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+          </TableHeader>
+          <TableBody>
+            {units.map((unit) => (
+              <TableRow key={unit.id}>
+                <TableCell className="font-medium">{unit.name}</TableCell>
+                <TableCell className="font-mono">{unit.abbreviation}</TableCell>
+                <TableCell>
+                  <Badge variant="secondary">{UNIT_TYPE_LABELS[unit.unit_type] || unit.unit_type}</Badge>
+                </TableCell>
+                <TableCell className="font-mono">{Number(unit.conversion_factor).toLocaleString()}</TableCell>
+                <TableCell>
+                  {unit.is_base_unit && <Badge variant="default">Base</Badge>}
+                </TableCell>
+                <TableCell className="text-right">
+                  <TableRowActions
+                    items={[
+                      { label: "Editar", icon: EditIcon, onClick: () => onEdit(unit) },
+                      { label: "Eliminar", icon: TrashIcon, destructive: true, onClick: () => onDelete(unit) },
+                    ]}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 }

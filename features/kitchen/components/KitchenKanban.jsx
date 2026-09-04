@@ -9,7 +9,7 @@ import { advanceOrderStatus } from "@/features/orders/actions";
 import { getStatusLabel, getStatusColor, getValidTransitions } from "@/features/orders/state-machine";
 import { useTransition } from "react";
 import { Loader2, Utensils, Truck, CheckCircle, Clock, AlertCircle, ChefHat, Package } from "lucide-react";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 const STATUS_CONFIG = {
@@ -23,6 +23,7 @@ const STATUS_ORDER = ['confirmed', 'in_kitchen', 'ready'];
 export function KitchenKanban({ orders }) {
   const [isPending, startTransition] = useTransition();
   const [pendingOrderId, setPendingOrderId] = useState(null);
+  const { toastSuccess, toastError } = useToast();
 
   const ordersByStatus = STATUS_ORDER.reduce((acc, status) => {
     acc[status] = orders.filter(o => o.status === status);
@@ -34,9 +35,9 @@ export function KitchenKanban({ orders }) {
     startTransition(async () => {
       const result = await advanceOrderStatus(orderId, newStatus);
       if (result.error) {
-        toast.error(result.error);
+        toastError(result.error);
       } else {
-        toast.success(`Orden #${orderId.slice(0,8)}: ${result.success}`);
+        toastSuccess(`Orden #${orderId.slice(0,8)}: ${result.success}`);
       }
       setPendingOrderId(null);
     });

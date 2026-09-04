@@ -6,6 +6,7 @@ import { getInventoryMovementsByItem, listRawMaterialsForMovement, listProductsF
 import { MovementTable } from "../../components/MovementTable";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PaginationControl } from "@/components/shared/pagination-control";
 import {
   Select,
   SelectContent,
@@ -13,7 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RefreshCwIcon, SearchIcon, PackageIcon, BoxIcon } from "lucide-react";
+import { RefreshCwIcon, PackageIcon } from "lucide-react";
+
+const ITEM_TYPE_OPTIONS = [
+  { value: "raw_material", label: "Materias Primas" },
+  { value: "product", label: "Productos Retail (Fase 4)" },
+];
 
 export default function KardexPage() {
   const router = useRouter();
@@ -28,19 +34,20 @@ export default function KardexPage() {
   const [rawMaterials, setRawMaterials] = useState([]);
   const [products, setProducts] = useState([]);
   const [currentStock, setCurrentStock] = useState(0);
-  const [selectedItem, setSelectedItem] = useState(null);
 
   // Compute display labels for selected values
   const selectedItemLabel = itemType === "raw_material" 
     ? rawMaterials.find(m => m.id === itemId)?.name 
     : products.find(p => p.id === itemId)?.name?.es || products.find(p => p.id === itemId)?.name;
 
+  const items = itemType === "raw_material" ? rawMaterials : products;
+  const selectedItem = itemId ? items.find(i => i.id === itemId) || null : null;
+
   const fetchMovements = useCallback(async () => {
     if (!itemId) {
       setMovements([]);
       setPagination(null);
       setCurrentStock(0);
-      setSelectedItem(null);
       return;
     }
 
@@ -65,9 +72,38 @@ export default function KardexPage() {
   }, [itemType, itemId]);
 
   useEffect(() => {
-    fetchMovements();
-    fetchStock();
-  }, [fetchMovements, fetchStock]);
+    let cancelled = false;
+    async function run() {
+      if (!itemId) {
+        if (!cancelled) {
+          setMovements([]);
+          setPagination(null);
+          setCurrentStock(0);
+        }
+        return;
+      }
+
+      setLoading(true);
+      const result = await getInventoryMovementsByItem(itemType, itemId, { page, pageSize: 50 });
+
+      if (!cancelled) {
+        if (result.error) {
+          console.error(result.error);
+        } else {
+          setMovements(result.data || []);
+          setPagination(result.pagination);
+        }
+        setLoading(false);
+      }
+
+      const stockResult = await getCurrentStock(itemType, itemId);
+      if (!cancelled) {
+        setCurrentStock(stockResult.stock || 0);
+      }
+    }
+    run();
+    return () => { cancelled = true; };
+  }, [itemType, itemId, page]);
 
   useEffect(() => {
     const fetchLookups = async () => {
@@ -80,16 +116,6 @@ export default function KardexPage() {
     };
     fetchLookups();
   }, []);
-
-  useEffect(() => {
-    if (itemId) {
-      const items = itemType === "raw_material" ? rawMaterials : products;
-      const item = items.find(i => i.id === itemId);
-      setSelectedItem(item || null);
-    } else {
-      setSelectedItem(null);
-    }
-  }, [itemId, itemType, rawMaterials, products]);
 
   const handleItemTypeChange = (value) => {
     setItemType(value);
@@ -107,7 +133,11 @@ export default function KardexPage() {
     fetchStock();
   };
 
-  const items = itemType === "raw_material" ? rawMaterials : products;
+  const selectedItemTypeLabel = ITEM_TYPE_OPTIONS.find((o) => o.value === itemType)?.label || "Materias Primas";
+  const itemOptions = items.map((item) => ({
+    value: item.id,
+    label: item.unit ? `${item.name} (${item.unit.abbreviation})` : item.name,
+  }));
 
   return (
     <div className="space-y-6">
@@ -124,29 +154,32 @@ export default function KardexPage() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <div className="md:col-span-2">
-          <Select value={itemType} onValueChange={handleItemTypeChange}>
-            <SelectTrigger>
-              <SelectValue placeholder="Tipo de ítem" />
+      <div className="bg-card border rounded-lg p-4">
+        <div className="grid gap-3 sm:grid-cols-2 items-end">
+          <Select
+            value={itemType}
+            onValueChange={handleItemTypeChange}
+            items={ITEM_TYPE_OPTIONS}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Tipo de ítem">{selectedItemTypeLabel}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="raw_material">
-                <PackageIcon className="h-4 w-4 mr-2" />
-                Materias Primas
-              </SelectItem>
-              <SelectItem value="product" disabled>
-                <BoxIcon className="h-4 w-4 mr-2" />
-                Productos Retail (Fase 4)
-              </SelectItem>
+              {ITEM_TYPE_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value} disabled={opt.value === "product"}>
+                  {opt.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
-        </div>
 
-        <div className="md:col-span-2">
-          <Select value={itemId} onValueChange={handleItemIdChange}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecciona un ítem" />
+          <Select
+            value={itemId || undefined}
+            onValueChange={handleItemIdChange}
+            items={itemOptions}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Selecciona un ítem">{selectedItemLabel || ""}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {items.map((item) => (
@@ -156,9 +189,6 @@ export default function KardexPage() {
               ))}
             </SelectContent>
           </Select>
-          {selectedItemLabel && (
-            <p className="text-xs text-muted-foreground mt-1">Seleccionado: {selectedItemLabel}</p>
-          )}
         </div>
       </div>
 
@@ -188,7 +218,7 @@ export default function KardexPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Historial de Movimientos</h2>
             <span className="text-sm text-muted-foreground">
-              {movements.length} movimiento{s} {pagination && `de ${pagination.total} total`}
+              {movements.length} movimiento{movements.length !== 1 ? "s" : ""} {pagination && `de ${pagination.total} total`}
             </span>
           </div>
 
@@ -211,27 +241,11 @@ export default function KardexPage() {
                 {Math.min(pagination.page * pagination.pageSize, pagination.total)} de{" "}
                 {pagination.total} movimientos
               </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage(page - 1)}
-                >
-                  Anterior
-                </Button>
-                <span className="text-sm">
-                  Página {pagination.page} de {pagination.totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= pagination.totalPages}
-                  onClick={() => setPage(page + 1)}
-                >
-                  Siguiente
-                </Button>
-              </div>
+              <PaginationControl
+                page={pagination.page}
+                totalPages={pagination.totalPages}
+                onPageChange={setPage}
+              />
             </div>
           )}
         </div>

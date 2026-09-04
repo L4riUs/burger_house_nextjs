@@ -26,7 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/features/auth/hooks";
-import { useCartStore } from "@/features/cart/store";
+import { useCartStore, calculateItemTotal } from "@/features/cart/store";
 import { getLocalizedField } from "@/lib/i18n";
 import {
   guestCheckoutFormSchema,
@@ -35,7 +35,7 @@ import {
   buildPaymentFormSchema,
   requiresPaymentProof,
 } from "../schemas";
-import { createOrderDraft, createGuestCustomer } from "../actions";
+import { createOrderDraft } from "../actions";
 
 const CHECKOUT_STEPS = [
   { id: "fulfillment", label: "Entrega" },
@@ -226,8 +226,6 @@ export function CheckoutWizard({ tables = [], paymentMethods = [] }) {
     paymentForm.handleSubmit(handlePaymentValid, buildInvalidHandler("pago"))(e);
   };
 
-  // TODO(fase6): conectar la creación real de la orden en la tabla `orders`.
-  // En esta fase createOrderDraft solo valida con Zod y registra el payload.
   const handleConfirm = async () => {
     const guestCustomerData =
       contact.customer_type === "guest"
@@ -280,9 +278,6 @@ export function CheckoutWizard({ tables = [], paymentMethods = [] }) {
     }
 
     if (result.success) {
-      if (contact.customer_type === "guest" && guestCustomerData) {
-        await createGuestCustomer(guestCustomerData);
-      }
       clearCart();
       toastSuccess("¡Pedido confirmado! Redirigiendo...");
       router.push("/checkout/confirmation");
@@ -971,19 +966,48 @@ function CartSummaryItem({ item }) {
       ? getLocalizedField(item.product.name) || item.product.name
       : getLocalizedField(item.combo.name) || item.combo.name;
 
-  const price =
-    item.type === "product"
-      ? Number(item.product.price_ves || 0)
-      : Number(item.combo.price_ves || 0);
+  const itemTotal = calculateItemTotal(item);
 
-  const itemTotal = price * item.quantity;
+  const hasExtras =
+    item.type === "product" && item.extras && item.extras.length > 0;
 
   return (
-    <div className="flex justify-between text-sm">
-      <span>
-        {name} × {item.quantity}
-      </span>
-      <span>${Number(itemTotal).toFixed(2)}</span>
+    <div className="text-sm space-y-0.5">
+      <div className="flex justify-between">
+        <span className="font-medium">
+          {name} × {item.quantity}
+        </span>
+        <span>${Number(itemTotal).toFixed(2)}</span>
+      </div>
+      {hasExtras && (
+        <ul className="pl-3 space-y-0.5">
+          {item.extras.map((extra) => {
+            const extraName =
+              getLocalizedField(extra.extra?.name) ||
+              extra.extra?.name ||
+              extra.name ||
+              "Adicional";
+            const extraPrice =
+              Number(extra.price_ves || extra.extra?.price_ves || 0);
+            const extraQty = extra.quantity || 1;
+            return (
+              <li
+                key={extra.id || extra.extra?.id}
+                className="flex justify-between text-xs text-muted-foreground"
+              >
+                <span>
+                  + {extraName} × {extraQty}
+                </span>
+                {extraPrice > 0 && (
+                  <span>
+                    ${Number(extraPrice * extraQty * item.quantity).toFixed(2)}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

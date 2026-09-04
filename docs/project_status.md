@@ -1,9 +1,9 @@
 # Burger House — Estado del Proyecto
 
-**Última actualización:** 29 de agosto de 2026  
-**Fase actual:** Fase 7 (Mesas, Reservas y Paquetes de Reservación) — Próxima a implementar  
+**Última actualización:** 1 de septiembre de 2026  
+**Fase actual:** Fase 7 (Mesas, Reservas y Paquetes de Reservación) — En implementación  
 **Fases completadas:** 0, 1, 2, 3, 4, 5, 6, 9  
-**Fases pendientes:** 7, 8, 10, 11
+**Fases pendientes:** 7 (en curso), 8, 10, 11
 
 ---
 
@@ -18,7 +18,7 @@
 | **Fase 4** | ✅ **Completada** | Productos, Recetas, Adicionales y Combos: Products (prepared/retail con campos condicionales), RecipeEditor (validación duplicados), Product Extras (raw_material_id opcional), Combos, imágenes en Supabase Storage, papelera extendida, tests unitarios receta/combo/precio |
 | **Fase 5** | ✅ **Completada** | Tienda pública: Catálogo (server components, is_active), Carrito Zustand persistido (lib/storage.js), Checkout wizard (fulfillment, guest/auth, payment methods seed con TODO fase 8), createOrderDraft server action (stub para fase 6), tests unitarios cart store + checkout Zod |
 | **Fase 6** | ✅ **Completada** | Órdenes unificadas (Pedidos/Cocina/Delivery): createOrder real (conecta checkout + POS interno), State machine pura (features/orders/state-machine.js) con RB-02, RB-01 descuento inventario transaccional al confirmar (recipe_items, retail, extras), order_status_history, Panel Órdenes staff (dual-view/filtros/acciones por estado), Cocina (Realtime kanban), Delivery (tomar entrega con concurrencia WHERE delivery_profile_id IS NULL, marcar entregado), Seguimiento cliente (Realtime), POS interno (reusa createOrder, channel pos/phone, taken_by, búsqueda productos/guest), Tests unitarios exhaustivos: state machine, inventory deduction, idempotency, delivery concurrency, POS order creation |
-| **Fase 7** | ⏳ **Pendiente** | Mesas, Reservas y Paquetes: restaurant_tables CRUD + mapa visual, conectar mesa en dine_in (occupied/available), reservation_packages CRUD, reservations con exclusion constraint (manejo error Postgres), sentar reserva |
+| **Fase 7** | 🚧 **En progreso** | Mesas, Reservas y Paquetes: restaurant_tables CRUD + vista mapa/tabla/tarjetas, migración SQL con trigger sync de estado de mesa (occupied/available) + RLS, reservation_packages CRUD (i18n JSONB, price VES vía BCV), reservations CRUD con manejo de exclusion constraint `excl_reservation_overlap` (error amigable), sentar/cancelar reserva, tests unitarios (overlap error + helpers). **Pendiente:** ejecutar `docs/fase7_reservations.sql` en Supabase, registro en Audit de fase 10 |
 | **Fase 8** | ⏳ **Pendiente** | Caja y Finanzas: payment_methods CRUD real, cash_sessions (apertura/cierre con RB-03), financial_transactions (sale/expense/capital_in/out/supplier_payment), cierre de caja (expected vs counted), reporte capital, facturación automática + notas de crédito (RB-04, RB-06), snapshot currency/exchange_rate |
 | **Fase 9** | ✅ **Completada** | Modo offline POS: lib/offline-queue.js (IndexedDB via idb), detección online/offline (navigator.onLine + listeners), cola pedidos con client_ref/estado/timestamp, sincronización automática al reconectar + botón manual, idempotencia server-side por client_ref (RB-07), pantalla pendientes/conflictos (editar/reintentar/descartar), pedidos offline NO aparecen en panel general/cocina/delivery/caja hasta sincronizar, tests unitarios cola + idempotency + flujo completo |
 | **Fase 10** | ⏳ **Pendiente** | Dashboard, Reportes y Auditoría: KPIs agregados en Supabase (ventas, órdenes, top productos, ticket promedio, caja, alertas stock), export CSV/PDF reusando consultas, audit_log UI (filtros entidad/actor/fecha), completar auditoría faltante de fases anteriores |
@@ -201,18 +201,20 @@ Ejecutar: `npm test`
 | `features/orders/__tests__/idempotency.test.js` | Manejo client_ref duplicado |
 | `features/orders/__tests__/assign-delivery-concurrency.test.js` | "Tomar entrega" concurrente |
 | `features/orders/__tests__/pos-order-creation.test.js` | POS crea orden con channel/taken_by, reusa createOrder |
+| `features/reservations/__tests__/overlap-error.test.js` | Parsea error exclusion constraint `23P01`/`excl_reservation_overlap` → mensaje amigable |
+| `features/reservations/__tests__/helpers.test.js` | canSeat/canEdit/canCancel + getCustomerName |
 
 ---
 
 ## Próximos Pasos (Fase 7)
 
 Según prompt `FASES_PROMPTS.md` Fase 7, el siguiente trabajo incluye:
-1. **CRUD `restaurant_tables`** con vista mapa (grid coloreado por estado)
-2. **Conectar órdenes dine_in**: mesa → 'occupied' al crear orden, → 'available' al completar/cancelar (si no hay otra orden activa)
-3. **CRUD `reservation_packages`**
-4. **CRUD `reservations`**: manejar error exclusion constraint Postgres (`excl_reservation_overlap`) con mensaje claro
-5. **"Sentar" reserva**: botón para reservation='seated' + mesa='occupied'
-6. **Test unitario**: test estilo integración para manejo error solapamiento
+1. **Ejecutar `docs/fase7_reservations.sql`** en el SQL Editor de Supabase (trigger `sync_table_status_for_orders` + políticas RLS)
+2. **"Sentar" reserva a nivel DB**: verificar que estatus 'seated' + creación de orden dine_in marquen la mesa 'occupied' correctamente en conjunto con el trigger
+3. **CRUD `reservation_packages`** — implementado (i18n JSONB, price_ves vía BCV, mesas embebidas)
+4. **CRUD `reservations`** — implementado (manejo error `excl_reservation_overlap` con mensaje claro)
+5. **"Sentar" reserva**: botón para reservation='seated' — implementado
+6. **Test unitario**: test estilo integración para manejo error solapamiento — implementado
 
 ---
 

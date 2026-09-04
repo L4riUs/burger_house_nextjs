@@ -11,7 +11,7 @@ import { formatCurrency } from "@/lib/utils";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getAllOfflineOrders, getPendingSyncOrders, getConflictOrders, markOrderSynced, markOrderConflict, deleteOfflineOrder } from "@/lib/offline-queue";
 import { createOrder } from "@/features/orders/actions";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 
 const STATUS_CONFIG = {
   pending_sync: { label: 'Pendiente de sincronizar', color: 'bg-yellow-100 text-yellow-800', icon: AlertTriangle },
@@ -53,6 +53,7 @@ export default function OfflineQueuePage() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, orderId: null });
+  const { toastSuccess, toastError } = useToast();
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -60,7 +61,7 @@ export default function OfflineQueuePage() {
       const allOrders = await getAllOfflineOrders();
       setOrders(allOrders);
     } catch (err) {
-      toast.error("Error cargando pedidos: " + err.message);
+      toastError("Error cargando pedidos: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -76,14 +77,14 @@ export default function OfflineQueuePage() {
       const result = await createOrder(order.payload);
       if (result.error) {
         await markOrderConflict(order.id, result.error);
-        toast.error("Conflicto al sincronizar: " + result.error);
+        toastError("Conflicto al sincronizar: " + result.error);
       } else {
         await markOrderSynced(order.id);
-        toast.success("Pedido sincronizado: #" + result.data?.order_number);
+        toastSuccess("Pedido sincronizado: #" + result.data?.order_number);
       }
     } catch (err) {
       await markOrderConflict(order.id, err.message);
-      toast.error("Error al sincronizar: " + err.message);
+      toastError("Error al sincronizar: " + err.message);
     } finally {
       fetchOrders();
       setSyncing(false);
@@ -93,7 +94,7 @@ export default function OfflineQueuePage() {
   const handleDelete = async () => {
     if (deleteConfirm.orderId) {
       await deleteOfflineOrder(deleteConfirm.orderId);
-      toast.success("Pedido descartado");
+      toastSuccess("Pedido descartado");
       fetchOrders();
       setDeleteConfirm({ open: false, orderId: null });
     }
@@ -123,8 +124,8 @@ export default function OfflineQueuePage() {
       }
     }
 
-    if (synced > 0) toast.success(`${synced} pedido(s) sincronizado(s)`);
-    if (conflicts > 0) toast.error(`${conflicts} pedido(s) con conflicto`);
+    if (synced > 0) toastSuccess(`${synced} pedido(s) sincronizado(s)`);
+    if (conflicts > 0) toastError(`${conflicts} pedido(s) con conflicto`);
     fetchOrders();
     setSyncing(false);
   };

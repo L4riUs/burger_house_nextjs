@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getStatusLabel, getStatusColor } from "../state-machine";
 
@@ -170,8 +169,6 @@ export function OrderDetailDialog({ order, onClose }) {
               </Card>
             )}
           </div>
-
-          <Separator />
 
           <Card>
             <CardHeader className="pb-2">

@@ -229,8 +229,9 @@ export function MenuClient({
           No se encontraron productos
         </div>
       ) : viewMode === "table" ? (
-        <div className="rounded-md border">
-          <Table>
+        <Card>
+          <CardContent className="pt-6">
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Producto</TableHead>
@@ -267,7 +268,8 @@ export function MenuClient({
               ))}
             </TableBody>
           </Table>
-        </div>
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {serverProducts.map((product) => (

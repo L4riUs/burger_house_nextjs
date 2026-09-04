@@ -6,17 +6,32 @@ import { usePosStore } from "./store";
 import { PosOrderBuilder } from "./components/PosOrderBuilder";
 import { PosCustomerSelector } from "./components/PosCustomerSelector";
 import { PosChannelSelector } from "./components/PosChannelSelector";
+import { PosPaymentVerification } from "./components/PosPaymentVerification";
+import { requiresPaymentProof, isPaymentProofComplete } from "../payment-verification";
+import { POS_PAYMENT_VERIFICATION } from "@/lib/config";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
+import { getLocalizedField } from "@/lib/i18n";
 import { createOrder } from "@/features/orders/actions";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addOfflineOrder, getPendingSyncCount, getPendingSyncOrders, markOrderSynced, markOrderConflict } from "@/lib/offline-queue";
-import { Loader2, CreditCard, User, Package, Truck, Utensils, X, Plus, Minus, CheckCircle, WifiOff, Wifi, RotateCcw, AlertTriangle } from "lucide-react";
-import { toast } from "sonner";
+import { Loader2, CreditCard, User, Package, Truck, Utensils, Sandwich, Search, Check, WifiOff, RotateCcw, AlertTriangle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { useTransition } from "react";
 
 const FULFILLMENT_TYPES = [
@@ -24,6 +39,63 @@ const FULFILLMENT_TYPES = [
   { value: 'dine_in', label: 'Comer aquí', icon: Utensils },
   { value: 'delivery', label: 'Delivery', icon: Truck },
 ];
+
+
+
+function CatalogCard({ item, type, onAdd }) {
+  const title = item.name?.es || item.name;
+  const soldOut = item.is_sold_out;
+  const comboItems = item.combo_items || [];
+
+  return (
+    <button
+      type="button"
+      onClick={() => onAdd(item)}
+      disabled={soldOut}
+      className="group relative flex flex-col overflow-hidden rounded-xl border bg-card text-left transition-colors hover:border-primary/50 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+        {item.image_url ? (
+          <img
+            src={item.image_url}
+            alt={title}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center">
+            {type === 'combo' ? (
+              <Package className="h-8 w-8 text-muted-foreground" />
+            ) : (
+              <Sandwich className="h-8 w-8 text-muted-foreground" />
+            )}
+          </div>
+        )}
+        {soldOut && (
+          <Badge variant="destructive" className="absolute top-2 right-2">
+            Agotado
+          </Badge>
+        )}
+      </div>
+      <div className="flex flex-col gap-1 p-3">
+        <span className="font-medium text-sm leading-tight line-clamp-2">{title}</span>
+        <span className="font-semibold tabular-nums text-primary">{formatCurrency(item.price_ves)}</span>
+        {type === 'combo' && comboItems.length > 0 && (
+          <ul className="mt-1 flex flex-col gap-0.5">
+            {comboItems.slice(0, 4).map((ci) => (
+              <li key={ci.id} className="text-xs text-muted-foreground leading-tight">
+                {ci.quantity}x {ci.product?.name?.es || ci.product?.name}
+              </li>
+            ))}
+            {comboItems.length > 4 && (
+              <li className="text-xs text-muted-foreground leading-tight">...</li>
+            )}
+          </ul>
+        )}
+      </div>
+    </button>
+  );
+}
 
 export default function PosPage() {
   const {
@@ -35,6 +107,7 @@ export default function PosPage() {
     notes,
     tableId,
     deliveryAddress,
+    fulfillmentType,
     addProduct,
     addCombo,
     removeItem,
@@ -44,9 +117,12 @@ export default function PosPage() {
     setCustomerType,
     setCustomer,
     setPaymentMethod,
+    paymentProof,
+    paymentProofReceiptPath,
     setNotes,
     setTableId,
     setDeliveryAddress,
+    setFulfillmentType,
     clearOrder,
     getSubtotalVES,
     getItemCount,
@@ -65,6 +141,23 @@ export default function PosPage() {
   const [isSubmitting, startTransition] = useTransition();
   const { isOnline, wasOffline, checkConnectivity } = useOnlineStatus();
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
+
+  const { toastSuccess, toastError } = useToast();
+
+  const categoryItems = [
+    { value: 'all', label: 'Todas las categorías' },
+    ...categories.map((c) => ({ value: c.id, label: c.name?.es || c.name })),
+  ];
+
+  const tableItems = tables.map((t) => ({
+    value: t.id,
+    label: `${t.name} (Cap: ${t.capacity})`,
+  }));
+
+  const paymentItems = paymentMethods.map((pm) => ({
+    value: pm.id,
+    label: `${pm.name} (${pm.currency})`,
+  }));
 
   const updatePendingCount = useCallback(async () => {
     const count = await getPendingSyncCount();
@@ -90,7 +183,7 @@ export default function PosPage() {
         supabase.from('products').select('id, name, price_ves, price_usd, image_url, is_active, is_sold_out, category_id, product_type').eq('is_active', true).is('deleted_at', null).order('name->>es'),
         supabase.from('combos').select('id, name, price_ves, price_usd, image_url, is_active, combo_items(id, quantity, product:products(id, name, price_ves, price_usd))').eq('is_active', true).is('deleted_at', null).order('name->>es'),
         supabase.from('categories').select('id, name').eq('applies_to', 'product').is('deleted_at', null).order('sort_order'),
-        supabase.from('payment_methods').select('id, name, currency').eq('is_active', true).is('deleted_at', null).order('name'),
+        supabase.from('payment_methods').select('id, name, currency, provider_code').eq('is_active', true).is('deleted_at', null).order('name'),
         supabase.from('restaurant_tables').select('id, name, capacity').eq('status', 'available').is('deleted_at', null).order('name'),
       ]);
 
@@ -112,36 +205,76 @@ export default function PosPage() {
     return !p.is_sold_out;
   });
 
+  // Agrega el producto directamente
+  const handleProductClick = (product) => {
+    addProduct(product, 1, []);
+  };
+
   const handleSubmit = async () => {
     if (items.length === 0) {
-      toast.error("Agrega al menos un item a la orden");
+      toastError("Agrega al menos un item a la orden");
       return;
     }
 
-    if (channel !== 'storefront' && !customer) {
-      toast.error("Selecciona o crea un cliente");
+    // 'anonymous' no requiere datos de cliente (se usa guest genérico)
+    if (customerType !== 'anonymous') {
+      if (customerType === 'guest' && (!customer?.full_name?.trim() || !customer?.phone?.trim())) {
+        toastError("Ingresa nombre y teléfono del cliente invitado");
+        return;
+      }
+      if (customerType === 'authenticated' && !customer) {
+        toastError("Selecciona un cliente registrado");
+        return;
+      }
+    }
+
+    if (fulfillmentType === 'dine_in' && !tableId) {
+      toastError("Selecciona una mesa para consumo en local");
       return;
     }
 
-    if (items.some(item => item.type === 'product' && item.product.fulfillment_type === 'dine_in' && !tableId)) {
-      toast.error("Selecciona una mesa para consumo en local");
+    if (fulfillmentType === 'delivery' && !deliveryAddress) {
+      toastError("Ingresa la dirección para delivery");
       return;
     }
 
-    if (items.some(item => item.product.fulfillment_type === 'delivery' && !deliveryAddress)) {
-      toast.error("Ingresa la dirección para delivery");
+    if (!paymentMethodId) {
+      toastError("Selecciona un método de pago");
       return;
     }
 
-    const orderData = getOrderData();
+    // Verificación de pago: solo para métodos que NO son efectivo.
+    const selectedPaymentMethod = paymentMethods.find((pm) => pm.id === paymentMethodId);
+    if (requiresPaymentProof(selectedPaymentMethod)) {
+      const proofComplete =
+        isPaymentProofComplete({
+          provider_code: selectedPaymentMethod?.provider_code,
+          reference_number: paymentProof?.reference_number,
+          payer_phone: paymentProof?.payer_phone,
+          payer_id_number: paymentProof?.payer_id_number,
+        }) && !!paymentProofReceiptPath;
+
+      if (POS_PAYMENT_VERIFICATION === 'before' && !proofComplete) {
+        toastError(
+          "Es necesario capturar el comprobante de pago (referencia y foto) para métodos que no son efectivo"
+        );
+        return;
+      }
+    }
+
+    const builtOrderData = getOrderData();
+    const orderData = POS_PAYMENT_VERIFICATION === 'after'
+      ? { ...builtOrderData, payment_proof: null }
+      : builtOrderData;
 
     if (isOnline) {
       startTransition(async () => {
         const result = await createOrder(orderData);
         if (result.error) {
-          toast.error(result.error);
+          console.error("[POS] Error al crear orden:", result.error);
+          toastError(result.error);
         } else {
-          toast.success("Orden creada: #" + result.data?.order_number);
+          toastSuccess("Orden creada: #" + result.data?.order_number);
           clearOrder();
         }
       });
@@ -151,7 +284,7 @@ export default function PosPage() {
         client_ref: crypto.randomUUID(),
       };
       await addOfflineOrder(payload);
-      toast.success("Pedido guardado offline, se sincronizará al reconectar");
+      toastSuccess("Pedido guardado offline, se sincronizará al reconectar");
       clearOrder();
       updatePendingCount();
     }
@@ -181,10 +314,10 @@ export default function PosPage() {
     }
 
     if (synced > 0) {
-      toast.success(`${synced} pedido(s) sincronizado(s)`);
+      toastSuccess(`${synced} pedido(s) sincronizado(s)`);
     }
     if (conflicts > 0) {
-      toast.error(`${conflicts} pedido(s) con conflicto, revisar en cola offline`);
+      toastError(`${conflicts} pedido(s) con conflicto, revisar en cola offline`);
     }
     updatePendingCount();
   };
@@ -192,16 +325,10 @@ export default function PosPage() {
   const handleManualSync = async () => {
     const online = await checkConnectivity();
     if (!online) {
-      toast.error("Sin conexión, no se puede sincronizar");
+      toastError("Sin conexión, no se puede sincronizar");
       return;
     }
     await handleAutoSync();
-  };
-
-  const getFulfillmentType = () => {
-    if (deliveryAddress) return 'delivery';
-    if (tableId) return 'dine_in';
-    return 'pickup';
   };
 
   const subtotal = getSubtotalVES();
@@ -251,65 +378,79 @@ export default function PosPage() {
         <div className="lg:col-span-2 space-y-4">
           <Card>
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle>Productos</CardTitle>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={selectedCategory || ''}
-                    onChange={(e) => setSelectedCategory(e.target.value || null)}
-                    className="border rounded-md px-2 py-1 text-sm"
-                  >
-                    <option value="">Todas las categorías</option>
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name?.es || c.name}</option>)}
-                  </select>
-                  <input
-                    type="text"
-                    placeholder="Buscar..."
+              <CardTitle>Productos</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar productos o combos..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="border rounded-md px-2 py-1 text-sm w-48"
+                    className="pl-9"
                   />
                 </div>
+                <Select
+                  value={selectedCategory || 'all'}
+                  onValueChange={(v) => setSelectedCategory(v === 'all' ? null : v)}
+                  items={categoryItems}
+                >
+                  <SelectTrigger className="w-full sm:w-56">
+                    <SelectValue placeholder="Todas las categorías" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las categorías</SelectItem>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name?.es || c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </CardHeader>
-            <CardContent>
-              {activeTab === 'products' ? (
-                <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                  {filteredProducts.map((product) => (
-                    <button
-                      key={product.id}
-                      onClick={() => addProduct(product)}
-                      className="p-3 border rounded-lg hover:bg-accent transition-colors text-left"
-                    >
-                      <p className="font-medium text-sm">{product.name?.es || product.name}</p>
-                      <p className="text-sm text-muted-foreground">{formatCurrency(product.price_ves)}</p>
-                      {product.is_sold_out && <span className="text-xs text-red-500">Agotado</span>}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-                  {combos.map((combo) => (
-                    <button
-                      key={combo.id}
-                      onClick={() => addCombo(combo)}
-                      className="p-3 border rounded-lg hover:bg-accent transition-colors text-left"
-                    >
-                      <p className="font-medium text-sm">{combo.name?.es || combo.name}</p>
-                      <p className="text-sm text-muted-foreground">{formatCurrency(combo.price_ves)}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {combo.combo_items?.length || 0} items
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              )}
 
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-                <TabsList>
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-2 max-w-xs">
                   <TabsTrigger value="products">Productos ({filteredProducts.length})</TabsTrigger>
                   <TabsTrigger value="combos">Combos ({combos.length})</TabsTrigger>
                 </TabsList>
+
+                <TabsContent value="products" className="mt-4">
+                  {filteredProducts.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No se encontraron productos
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+                      {filteredProducts.map((product) => (
+                        <CatalogCard
+                          key={product.id}
+                          item={product}
+                          type="product"
+                          onAdd={handleProductClick}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="combos" className="mt-4">
+                  {combos.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No se encontraron combos
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+                      {combos.map((combo) => (
+                        <CatalogCard
+                          key={combo.id}
+                          item={combo}
+                          type="combo"
+                          onAdd={addCombo}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
               </Tabs>
             </CardContent>
           </Card>
@@ -347,25 +488,20 @@ export default function PosPage() {
                 Tipo de Entrega
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {FULFILLMENT_TYPES.map((type) => (
-                  <label
-                    key={type.value}
-                    className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
-                      getFulfillmentType() === type.value
-                        ? 'border-primary bg-primary/5'
-                        : 'hover:bg-accent'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="fulfillment"
-                      checked={getFulfillmentType() === type.value}
-                      onChange={() => {
+            <CardContent className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2">
+                {FULFILLMENT_TYPES.map((type) => {
+                  const disabled = type.value === 'dine_in' && tables.length === 0;
+                  return (
+                    <button
+                      key={type.value}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => {
+                        setFulfillmentType(type.value);
                         if (type.value === 'dine_in') {
-                          setTableId(tables[0]?.id || null);
                           setDeliveryAddress('');
+                          if (!tableId && tables.length > 0) setTableId(tables[0].id);
                         } else if (type.value === 'delivery') {
                           setTableId(null);
                         } else {
@@ -373,34 +509,56 @@ export default function PosPage() {
                           setDeliveryAddress('');
                         }
                       }}
-                      className="sr-only"
-                    />
-                    <type.icon className="h-5 w-5" />
-                    <span className="font-medium">{type.label}</span>
-                  </label>
+                      className={`flex items-center gap-3 p-3 rounded-lg border transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                        fulfillmentType === type.value
+                          ? 'border-primary bg-primary/5'
+                          : 'hover:bg-accent'
+                      }`}
+                    >
+                      <type.icon className="h-5 w-5" />
+                      <span className="font-medium">{type.label}</span>
+                      {fulfillmentType === type.value && (
+                        <Check className="ml-auto h-4 w-4 text-primary" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {fulfillmentType === 'dine_in' &&
+                (tables.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No hay mesas disponibles.</p>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-sm font-medium">Mesa</span>
+                    <Select
+                      value={tableId}
+                      onValueChange={setTableId}
+                      items={tableItems}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Seleccionar mesa" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tables.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>
+                            {t.name} (Cap: {t.capacity})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 ))}
 
-                {getFulfillmentType() === 'dine_in' && tables.length > 0 && (
-                  <select
-                    value={tableId || ''}
-                    onChange={(e) => setTableId(e.target.value || null)}
-                    className="w-full border rounded-md px-3 py-2"
-                  >
-                    <option value="">Seleccionar mesa</option>
-                    {tables.map(t => <option key={t.id} value={t.id}>{t.name} (Cap: {t.capacity})</option>)}
-                  </select>
-                )}
-
-                {getFulfillmentType() === 'delivery' && (
-                  <textarea
-                    placeholder="Dirección de entrega"
-                    value={deliveryAddress}
-                    onChange={(e) => setDeliveryAddress(e.target.value)}
-                    className="w-full border rounded-md px-3 py-2"
-                    rows={2}
-                  />
-                )}
-              </div>
+              {fulfillmentType === 'delivery' && (
+                <textarea
+                  placeholder="Dirección de entrega"
+                  value={deliveryAddress}
+                  onChange={(e) => setDeliveryAddress(e.target.value)}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  rows={2}
+                />
+              )}
             </CardContent>
           </Card>
 
@@ -411,17 +569,30 @@ export default function PosPage() {
                 Pago
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-col gap-3">
               <PosChannelSelector onChange={setChannel} value={channel} />
-              <Separator className="my-3" />
-              <select
-                value={paymentMethodId || ''}
-                onChange={(e) => setPaymentMethod(e.target.value || null)}
-                className="w-full border rounded-md px-3 py-2"
-              >
-                <option value="">Método de pago</option>
-                {paymentMethods.map(p => <option key={p.id} value={p.id}>{p.name} ({p.currency})</option>)}
-              </select>
+              <Separator />
+              <div className="flex flex-col gap-1.5">
+                <span className="text-sm font-medium">Método de pago</span>
+                <Select
+                  value={paymentMethodId}
+                  onValueChange={setPaymentMethod}
+                  items={paymentItems}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Seleccionar método de pago" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paymentMethods.map((pm) => (
+                      <SelectItem key={pm.id} value={pm.id}>
+                        {pm.name} ({pm.currency})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <PosPaymentVerification />
             </CardContent>
           </Card>
 

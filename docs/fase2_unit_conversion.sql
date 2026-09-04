@@ -100,24 +100,18 @@ UNION ALL
 SELECT
   'product'::inventory_item_type AS item_type,
   product_id AS item_id,
-  p.unit_id,
-  u.abbreviation AS unit_abbreviation,
+  NULL::uuid AS unit_id,
+  NULL::text AS unit_abbreviation,
   COALESCE(SUM(
     CASE
-      WHEN im.movement_type IN ('purchase_in','adjustment_in','transfer_in') THEN 
-        im.quantity * COALESCE(um.conversion_factor,1) / p_u.conversion_factor
-      WHEN im.movement_type IN ('sale_out','adjustment_out','waste','transfer_out') THEN 
-        -im.quantity * COALESCE(um.conversion_factor,1) / p_u.conversion_factor
+      WHEN im.movement_type IN ('purchase_in','adjustment_in','transfer_in') THEN im.quantity
+      WHEN im.movement_type IN ('sale_out','adjustment_out','waste','transfer_out') THEN -im.quantity
       ELSE 0
     END
   ), 0) AS stock
 FROM inventory_movements im
-JOIN products p ON im.product_id = p.id
-JOIN units p_u ON p.unit_id = p_u.id
-LEFT JOIN units um ON im.unit_id = um.id
-LEFT JOIN units u ON p.unit_id = u.id
 WHERE im.product_id IS NOT NULL
-GROUP BY product_id, p.unit_id, u.abbreviation, p_u.conversion_factor;
+GROUP BY product_id;
 
 -- ----------------------------------------------------------------------------
 -- 5. Funciones helper para conversión en SQL

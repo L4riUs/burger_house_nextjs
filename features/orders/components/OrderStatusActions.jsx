@@ -3,12 +3,15 @@
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getValidTransitions, getStatusLabel, canCancel } from "../state-machine";
 import { advanceOrderStatus, cancelOrder, assignDeliveryDriver, completeDelivery } from "../actions";
 import { useTransition, useState } from "react";
-import { Loader2, Truck, CheckCircle, XCircle, RotateCcw } from "lucide-react";
+import { Loader2, Truck, CheckCircle, XCircle, RotateCcw, CreditCard, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
+import { PaymentVerificationPanel } from "./PaymentVerificationPanel";
+import { requiresPaymentProof } from "../payment-verification";
 
 const STATUS_ACTIONS = {
   confirmed: { label: 'Confirmar', icon: CheckCircle, variant: 'default' },
@@ -20,11 +23,19 @@ const STATUS_ACTIONS = {
   cancelled: { label: 'Cancelar', icon: XCircle, variant: 'destructive' },
 };
 
-export function OrderStatusActions({ order }) {
+export function OrderStatusActions({ order, onRefresh, onViewOrder, trigger }) {
+  const { toastSuccess, toastError } = useToast();
   const [isPending, startTransition] = useTransition();
   const [confirmDialog, setConfirmDialog] = useState({ open: false, action: null });
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
 
   const validTransitions = getValidTransitions(order.status);
+
+  // No se puede completar una orden que exige comprobante de pago si éste no
+  // está aprobado. Bloqueamos el item en la UI (el servidor también lo valida).
+  const methodNeedsProof = requiresPaymentProof(order.payment_method);
+  const hasApprovedProof = (order.payment_proofs || []).some(p => p.status === 'approved');
+  const completionBlocked = methodNeedsProof && !hasApprovedProof;
 
   if (!validTransitions.length) {
     return null;
@@ -49,9 +60,10 @@ export function OrderStatusActions({ order }) {
     startTransition(async () => {
       const result = await advanceOrderStatus(order.id, newStatus);
       if (result.error) {
-        toast.error(result.error);
+        toastError(result.error);
       } else {
-        toast.success(result.success);
+        toastSuccess(result.success);
+        onRefresh?.();
       }
     });
   };
@@ -61,9 +73,10 @@ export function OrderStatusActions({ order }) {
       startTransition(async () => {
         const result = await cancelOrder(order.id);
         if (result.error) {
-          toast.error(result.error);
+          toastError(result.error);
         } else {
-          toast.success(result.success);
+          toastSuccess(result.success);
+          onRefresh?.();
         }
         setConfirmDialog({ open: false, action: null });
       });
@@ -71,9 +84,10 @@ export function OrderStatusActions({ order }) {
       startTransition(async () => {
         const result = await assignDeliveryDriver(order.id);
         if (result.error) {
-          toast.error(result.error);
+          toastError(result.error);
         } else {
-          toast.success(result.success);
+          toastSuccess(result.success);
+          onRefresh?.();
         }
         setConfirmDialog({ open: false, action: null });
       });
@@ -81,9 +95,10 @@ export function OrderStatusActions({ order }) {
       startTransition(async () => {
         const result = await completeDelivery(order.id);
         if (result.error) {
-          toast.error(result.error);
+          toastError(result.error);
         } else {
-          toast.success(result.success);
+          toastSuccess(result.success);
+          onRefresh?.();
         }
         setConfirmDialog({ open: false, action: null });
       });
@@ -108,12 +123,23 @@ export function OrderStatusActions({ order }) {
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="w-full">
-            Acciones <RotateCcw className="ml-1 h-3.5 w-3.5" />
-          </Button>
+        <DropdownMenuTrigger render={trigger || <Button variant="outline" size="sm" className="w-full" />}>
+          {!trigger && (
+            <>
+              Acciones <RotateCcw className="ml-1 h-3.5 w-3.5" />
+            </>
+          )}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-[200px]">
+          {onViewOrder && (
+            <>
+              <DropdownMenuItem onClick={() => onViewOrder()}>
+                <Eye className="mr-2 h-4 w-4" />
+                Ver detalle
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <div className="px-2 py-1 text-xs text-muted-foreground">
             Estado actual: {getStatusLabel(order.status)}
           </div>
@@ -126,7 +152,7 @@ export function OrderStatusActions({ order }) {
               <DropdownMenuItem
                 key={status}
                 onClick={() => handleAction(status)}
-                disabled={isPending}
+                disabled={isPending || (status === 'completed' && completionBlocked)}
                 className={cn(
                   action.variant === 'destructive' && 'text-destructive focus:text-destructive'
                 )}
@@ -137,6 +163,11 @@ export function OrderStatusActions({ order }) {
               </DropdownMenuItem>
             );
           })}
+          {completionBlocked && validTransitions.includes('completed') && (
+            <div className="px-2 py-1.5 text-xs text-muted-foreground border-t mt-1">
+              Registra y aprueba el comprobante de pago antes de completar la orden.
+            </div>
+          )}
           {canCancel(order.status) && !validTransitions.includes('cancelled') && (
             <>
               <DropdownMenuSeparator />
@@ -151,8 +182,26 @@ export function OrderStatusActions({ order }) {
               </DropdownMenuItem>
             </>
           )}
+          {order.status === 'served' && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setPaymentDialogOpen(true)}>
+                <CreditCard className="mr-2 h-4 w-4" />
+                Verificar pago
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Verificación de pago</DialogTitle>
+          </DialogHeader>
+          <PaymentVerificationPanel order={order} onRefresh={onRefresh} />
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog({ ...confirmDialog, open })}>
         <AlertDialogContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableRowActions } from "@/components/shared/table-row-actions";
 import { RotateCcwIcon } from "lucide-react";
 
 function formatDate(dateString) {
@@ -34,37 +35,36 @@ export function TrashTable({ trashData, onRestore }) {
             <h3 className="text-lg font-semibold text-muted-foreground">
               {entityGroup.label} ({entityGroup.data.length})
             </h3>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Fecha de eliminación</TableHead>
-                    <TableHead className="text-right">Acción</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {entityGroup.data.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.displayName}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatDate(item.deleted_at)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onRestore(entityGroup.entity, item.id)}
-                        >
-                          <RotateCcwIcon className="h-4 w-4 mr-2" />
-                          Restaurar
-                        </Button>
-                      </TableCell>
+            <Card>
+              <CardContent className="pt-6">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nombre</TableHead>
+                      <TableHead>Fecha de eliminación</TableHead>
+                      <TableHead className="text-right">Acción</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {entityGroup.data.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">{item.displayName}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDate(item.deleted_at)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <TableRowActions
+                            items={[
+                              { label: "Restaurar", icon: RotateCcwIcon, onClick: () => onRestore(entityGroup.entity, item.id) },
+                            ]}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           </div>
         );
       })}

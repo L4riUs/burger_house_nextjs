@@ -1,10 +1,116 @@
 "use client";
 
-import { usePosStore } from "../store";
+import { useState } from "react";
+import { usePosStore, calculatePosItemTotal } from "../store";
 import { formatCurrency } from "@/lib/utils";
+import { getLocalizedField } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
-import { Plus, Minus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Plus, Minus, Trash2, Pencil, PlusCircle } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { createClient } from "@/lib/supabase/client";
+
+function PosItemExtrasPopover({ item, onConfirm, children }) {
+  const [open, setOpen] = useState(false);
+  const [selectedExtras, setSelectedExtras] = useState([]);
+  const [extras, setExtras] = useState([]);
+  const [loadingExtras, setLoadingExtras] = useState(false);
+
+  const handleOpenChange = (next) => {
+    setOpen(next);
+    if (!next) return;
+
+    setSelectedExtras(item.extras || []);
+    setLoadingExtras(true);
+    const supabase = createClient();
+    supabase
+      .from('product_extra_options')
+      .select('extra:product_extras(id, name, price_ves, price_usd)')
+      .eq('product_id', item.product.id)
+      .then(({ data, error }) => {
+        if (error) console.error("Error fetching extras:", error);
+        const parsedExtras = data?.map(opt => opt.extra).filter(Boolean) || [];
+        setExtras(parsedExtras);
+        setLoadingExtras(false);
+      });
+  };
+
+  const toggleExtra = (extra) => {
+    setSelectedExtras((prev) => {
+      const exists = prev.find((s) => s.extra?.id === extra.id);
+      if (exists) return prev.filter((s) => s.extra?.id !== extra.id);
+      return [...prev, { extra, quantity: 1 }];
+    });
+  };
+
+  const updateExtraQty = (extraId, qty) => {
+    setSelectedExtras((prev) =>
+      prev.map((s) =>
+        s.extra?.id === extraId
+          ? { ...s, quantity: Math.max(1, Math.min(10, qty)) }
+          : s
+      )
+    );
+  };
+
+  const handleConfirm = () => {
+    onConfirm(selectedExtras);
+    setOpen(false);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger render={children} />
+      <PopoverContent className="w-80 p-4" align="start">
+        <div className="space-y-4">
+          <h4 className="font-medium text-sm leading-none">Adicionales disponibles</h4>
+          
+          {loadingExtras ? (
+            <p className="text-sm text-muted-foreground">Cargando...</p>
+          ) : extras.length > 0 ? (
+            <div className="space-y-3">
+              {extras.map((extra) => {
+                const extraName = getLocalizedField(extra.name) || extra.name;
+                const extraPrice = Number(extra.price_ves || 0);
+                const sel = selectedExtras.find((s) => s.extra?.id === extra.id);
+                return (
+                  <div key={extra.id} className="flex items-center gap-3">
+                    <Checkbox
+                      checked={Boolean(sel)}
+                      onCheckedChange={() => toggleExtra(extra)}
+                    />
+                    <span className="flex-1 text-sm truncate">
+                      {extraName}{extraPrice > 0 && ` +${formatCurrency(extraPrice)}`}
+                    </span>
+                    {sel && (
+                      <Input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={sel.quantity || 1}
+                        onChange={(e) => updateExtraQty(extra.id, Number(e.target.value))}
+                        className="w-16 h-8 text-xs"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Este producto no tiene adicionales.</p>
+          )}
+
+          <div className="pt-2">
+            <Button size="sm" className="w-full" onClick={handleConfirm}>
+              Guardar cambios
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export function PosOrderBuilder() {
   const {
@@ -63,14 +169,34 @@ export function PosOrderBuilder() {
                     <Plus className="h-3.5 w-3.5" />
                   </Button>
 
-                  {item.extras && item.extras.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="ml-2 text-xs"
+                  {/* Botón de adicionales: editar si ya tiene, agregar si no tiene (solo productos) */}
+                  {item.type === 'product' && (
+                    <PosItemExtrasPopover
+                      item={item}
+                      onConfirm={(extras) => updateExtras(item.id, extras)}
                     >
-                      +{item.extras.length} extras
-                    </Button>
+                      {item.extras && item.extras.length > 0 ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="ml-1 text-xs gap-1 text-primary hover:text-primary"
+                          title="Editar adicionales"
+                        >
+                          <Pencil className="h-3 w-3" />
+                          {item.extras.length} adicional{item.extras.length !== 1 ? 'es' : ''}
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="ml-1 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                          title="Agregar adicionales"
+                        >
+                          <PlusCircle className="h-3 w-3" />
+                          Adicionales
+                        </Button>
+                      )}
+                    </PosItemExtrasPopover>
                   )}
 
                   <Button
@@ -85,22 +211,29 @@ export function PosOrderBuilder() {
 
                 {item.extras && item.extras.length > 0 && (
                   <div className="mt-2 ml-4 space-y-1 border-l-2 border-border pl-2">
-                    {item.extras.map((extra) => (
-                      <div key={extra.id} className="text-sm text-muted-foreground flex items-center gap-2">
-                        <span>+ {extra.extra?.name || extra.name || 'Extra'}</span>
-                        <span>×{extra.quantity}</span>
-                        <span className="font-medium">{formatCurrency(extra.price_ves || extra.extra?.price_ves || 0)}</span>
-                      </div>
-                    ))}
+                    {item.extras.map((extra) => {
+                      const extraName =
+                        getLocalizedField(extra.extra?.name) ||
+                        extra.extra?.name ||
+                        extra.name ||
+                        "Adicional";
+                      const extraPrice = extra.price_ves || extra.extra?.price_ves || 0;
+                      const extraQty = extra.quantity || 1;
+                      return (
+                        <div key={extra.id} className="text-sm text-muted-foreground flex items-center justify-between gap-2">
+                          <span>+ {extraName} ×{extraQty}</span>
+                          <span className="font-medium tabular-nums">
+                            {formatCurrency(extraPrice * extraQty * item.quantity)}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
 
               <div className="text-right font-bold tabular-nums">
-                {formatCurrency(
-                  (item.type === 'combo' ? item.combo.price_ves : item.product.price_ves) * item.quantity +
-                  (item.extras?.reduce((sum, e) => sum + (e.price_ves || e.extra?.price_ves || 0) * e.quantity, 0) || 0)
-                )}
+                {formatCurrency(calculatePosItemTotal(item))}
               </div>
             </div>
           </div>

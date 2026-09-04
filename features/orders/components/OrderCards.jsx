@@ -12,7 +12,7 @@ import { OrderStatusActions } from "./OrderStatusActions";
 import { OrderDetailDialog } from "./OrderDetailDialog";
 import { useState } from "react";
 
-export function OrderCards({ orders }) {
+export function OrderCards({ orders, onRefresh }) {
   const [selectedOrder, setSelectedOrder] = useState(null);
 
   const formatCurrency = (amount) => {
@@ -122,21 +122,21 @@ export function OrderCards({ orders }) {
 
             <div className="flex items-center justify-between text-xs text-muted-foreground border-t pt-2">
               <span>{format(new Date(order.created_at), 'dd/MM/yyyy HH:mm', { locale: es })}</span>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
+              <div onClick={(e) => e.stopPropagation()}>
+                <DropdownMenu>
+                  <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 p-0" />}>
                     <MoreHorizontal className="h-4 w-4" />
                     <span className="sr-only">Más opciones</span>
-                  </Button>
-                </DropdownMenuTrigger>
+                  </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild onClick={(e) => { e.preventDefault(); setSelectedOrder(order); }}>
+                  <DropdownMenuItem onClick={(e) => { e.preventDefault(); setSelectedOrder(order); }}>
                     <Eye className="mr-2 h-4 w-4" />
                     Ver detalle
                   </DropdownMenuItem>
-                  <OrderStatusActions order={order} />
+                  <OrderStatusActions order={order} onRefresh={onRefresh} />
                 </DropdownMenuContent>
               </DropdownMenu>
+              </div>
             </div>
           </CardContent>
         </Card>

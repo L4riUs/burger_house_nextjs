@@ -6,13 +6,14 @@ import { DeliveryList } from "./components/DeliveryList";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, RefreshCw, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 export default function DeliveryPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const { toastSuccess, toastError, toastInfo } = useToast();
 
   const fetchOrders = async () => {
     const supabase = createClient();
@@ -34,7 +35,7 @@ export default function DeliveryPage() {
       .order('created_at', { ascending: true });
 
     if (error) {
-      toast.error("Error cargando entregas: " + error.message);
+      toastError("Error cargando entregas: " + error.message);
     } else {
       setOrders(data || []);
     }
@@ -62,7 +63,7 @@ export default function DeliveryPage() {
               if (prev.some(o => o.id === newOrder.id)) return prev;
               return [...prev, newOrder].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
             });
-            toast.info(`Nueva entrega #${newOrder.order_number} lista para tomar`);
+            toastInfo(`Nueva entrega #${newOrder.order_number} lista para tomar`);
           } else if (payload.eventType === 'UPDATE') {
             const updatedOrder = payload.new;
             if (!['ready', 'out_for_delivery'].includes(updatedOrder.status)) {
@@ -87,7 +88,7 @@ export default function DeliveryPage() {
 
   const handleRefresh = () => {
     fetchOrders();
-    toast.success("Entregas actualizadas");
+    toastSuccess("Entregas actualizadas");
   };
 
   return (

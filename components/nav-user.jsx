@@ -73,11 +73,11 @@ export function NavUser({ user }) {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem asChild>
-                <Link href="/admin/profile" className="flex items-center gap-2 cursor-pointer">
-                  <UserIcon className="h-4 w-4" />
-                  Mi Perfil
-                </Link>
+              <DropdownMenuItem
+                render={<Link href="/admin/profile" className="flex items-center gap-2 cursor-pointer" />}
+              >
+                <UserIcon className="h-4 w-4" />
+                Mi Perfil
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

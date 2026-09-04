@@ -3,13 +3,14 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Calendar, X, Search, Filter as FilterIcon } from "lucide-react";
+import { CalendarIcon, X, Search, Filter as FilterIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
+import { Calendar } from "@/components/ui/calendar";
 import { format, parseISO } from "date-fns";
-import { es } from "date-fns/locale";
+import { es as esDateFns } from "date-fns/locale";
+import { es as esDayPicker } from "react-day-picker/locale";
 import { cn } from "@/lib/utils";
 
 const MultiSelectFilter = ({ label, options, selected, onChange, placeholder = "Todos" }) => {
@@ -41,9 +42,9 @@ const MultiSelectFilter = ({ label, options, selected, onChange, placeholder = "
             />
           }
         >
-          <div className="flex items-center gap-2">
-            <FilterIcon className="h-4 w-4" />
-            <span>{selected.length ? selectedLabels : placeholder}</span>
+          <div className="flex items-center gap-2 truncate">
+            <FilterIcon className="h-4 w-4 shrink-0" />
+            <span className="truncate">{selected.length ? selectedLabels : placeholder}</span>
           </div>
         </PopoverTrigger>
         {selected.length > 0 && (
@@ -76,6 +77,39 @@ const MultiSelectFilter = ({ label, options, selected, onChange, placeholder = "
   );
 };
 
+const DatePickerFilter = ({ id, label, value, onChange }) => (
+  <div className="flex items-center gap-2">
+    <Label htmlFor={id} className="text-sm whitespace-nowrap">
+      {label}
+    </Label>
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="outline"
+            id={id}
+            className={cn(
+              "w-[205px] justify-start px-2.5 font-normal",
+              !value && "text-muted-foreground"
+            )}
+          />
+        }
+      >
+        <CalendarIcon className="mr-2 h-4 w-4" />
+        {value ? format(parseISO(value), 'dd/MM/yyyy', { locale: esDateFns }) : 'Seleccionar fecha'}
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={value ? parseISO(value) : undefined}
+          onSelect={(date) => onChange(date ? format(date, 'yyyy-MM-dd') : '')}
+          locale={esDayPicker}
+        />
+      </PopoverContent>
+    </Popover>
+  </div>
+);
+
 export function OrderFilters({ filters, onChange, statusOptions, fulfillmentOptions, channelOptions }) {
   const [search, setSearch] = useState(filters.search || '');
   const [dateFrom, setDateFrom] = useState(filters.date_from || '');
@@ -104,21 +138,12 @@ export function OrderFilters({ filters, onChange, statusOptions, fulfillmentOpti
     setStatus([]);
     setFulfillment([]);
     setChannel([]);
-    onChange({
-      ...filters,
-      search: '',
-      date_from: '',
-      date_to: '',
-      status: [],
-      fulfillment_type: [],
-      channel: [],
-    });
   };
 
   return (
-    <div className="space-y-4 p-4 bg-card border rounded-lg">
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1 max-w-xs">
+    <div className="bg-card border rounded-lg p-4 space-y-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por #orden, cliente..."
@@ -153,71 +178,29 @@ export function OrderFilters({ filters, onChange, statusOptions, fulfillmentOpti
         />
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1">
-          <Label className="text-sm font-medium">Fecha desde</Label>
-          <Popover>
-            <PopoverTrigger
-              render={
-                <Button
-                  variant="outline"
-                  className={cn("w-full justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}
-                />
-              }
-            >
-              <Calendar className="mr-2 h-4 w-4" />
-              {dateFrom ? format(parseISO(dateFrom), 'dd/MM/yyyy', { locale: es }) : 'Seleccionar fecha'}
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" side="bottom" align="start">
-              <Calendar
-                mode="single"
-                selected={dateFrom ? parseISO(dateFrom) : undefined}
-                onSelect={setDateFrom}
-                initialFocus
-                locale={es}
-              />
-            </PopoverContent>
-          </Popover>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-3 border-t">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <DatePickerFilter
+            id="date_from"
+            label="Desde"
+            value={dateFrom}
+            onChange={setDateFrom}
+          />
+          <DatePickerFilter
+            id="date_to"
+            label="Hasta"
+            value={dateTo}
+            onChange={setDateTo}
+          />
         </div>
 
-        <div className="flex-1">
-          <Label className="text-sm font-medium">Fecha hasta</Label>
-          <Popover>
-            <PopoverTrigger
-              render={
-                <Button
-                  variant="outline"
-                  className={cn("w-full justify-start text-left font-normal", !dateTo && "text-muted-foreground")}
-                />
-              }
-            >
-              <Calendar className="mr-2 h-4 w-4" />
-              {dateTo ? format(parseISO(dateTo), 'dd/MM/yyyy', { locale: es }) : 'Seleccionar fecha'}
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" side="bottom" align="start">
-              <Calendar
-                mode="single"
-                selected={dateTo ? parseISO(dateTo) : undefined}
-                onSelect={setDateTo}
-                initialFocus
-                locale={es}
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-      </div>
-
-      {hasActiveFilters && (
-        <div className="flex items-center justify-between pt-2 border-t">
-          <span className="text-sm text-muted-foreground">
-            {status.length} estado(s), {fulfillment.length} tipo(s), {channel.length} canal(es)
-          </span>
-          <Button variant="ghost" size="sm" onClick={clearAllFilters}>
-            <X className="mr-1 h-3.5 w-3.5" />
+        {hasActiveFilters && (
+          <Button variant="outline" size="sm" onClick={clearAllFilters}>
+            <X className="h-4 w-4 mr-2" />
             Limpiar filtros
           </Button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

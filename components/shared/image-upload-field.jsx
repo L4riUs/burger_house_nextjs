@@ -12,6 +12,7 @@ export function ImageUploadField({
   onChange,
   disabled = false,
   folder = "products",
+  bucket = "product-images",
   label = "Imagen",
 }) {
   const inputRef = useRef(null);
@@ -44,7 +45,7 @@ export function ImageUploadField({
       const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
-        .from("product-images")
+        .from(bucket)
         .upload(fileName, file);
 
       if (uploadError) {
@@ -53,7 +54,7 @@ export function ImageUploadField({
 
       const {
         data: { publicUrl },
-      } = supabase.storage.from("product-images").getPublicUrl(fileName);
+      } = supabase.storage.from(bucket).getPublicUrl(fileName);
 
       onChange(publicUrl);
     } catch (err) {

@@ -48,12 +48,14 @@ export const createOrderSchema = z.object({
   customer_type: z.enum(['guest', 'authenticated']),
   profile_id: z.string().uuid().optional().nullable(),
   guest_customer: guestCustomerSchema.optional().nullable(),
+  guest_customer_id: z.string().uuid().optional().nullable(),
   payment_method_id: z.string().uuid(),
   payment_proof: z.object({
     provider_code: z.enum(['pago_movil', 'binance', 'zelle']),
     reference_number: z.string().min(1),
     payer_phone: z.string().nullable(),
     payer_id_number: z.string().nullable(),
+    receipt_path: z.string().optional().nullable(),
   }).optional().nullable(),
   channel: orderChannelSchema.default('storefront'),
   taken_by: z.string().uuid().optional().nullable(),
@@ -95,18 +97,9 @@ export const createOrderSchema = z.object({
     message: 'profile_id es requerido para clientes autenticados',
     path: ['profile_id'],
   }
-).refine(
-  (data) => {
-    if (data.channel !== 'storefront') {
-      return data.taken_by !== null && data.taken_by !== undefined;
-    }
-    return true;
-  },
-  {
-    message: 'taken_by es requerido para órdenes POS/teléfono',
-    path: ['taken_by'],
-  }
 );
+// Nota: taken_by se exige solo a nivel de BD (chk_order_taken_by) y lo rellena
+// el server action createOrder (staff autenticado) para canales internos.
 
 export const advanceOrderStatusSchema = z.object({
   order_id: z.string().uuid(),
@@ -136,6 +129,16 @@ export const orderFiltersSchema = z.object({
   date_from: z.string().optional(),
   date_to: z.string().optional(),
   search: z.string().optional(),
+});
+
+export const saveOrderProofSchema = z.object({
+  order_id: z.string().uuid(),
+  payment_method_id: z.string().uuid(),
+  reference_number: z.string().min(1, 'El número de referencia es requerido'),
+  payer_phone: z.string().nullable().optional(),
+  payer_id_number: z.string().nullable().optional(),
+  receipt_path: z.string().min(1, 'Debe adjuntar el comprobante (foto)'),
+  provider_code: z.enum(['pago_movil', 'binance', 'zelle']).optional(),
 });
 
 export const posOrderItemSchema = z.object({

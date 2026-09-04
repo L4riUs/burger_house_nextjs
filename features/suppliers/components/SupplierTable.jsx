@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableRowActions } from "@/components/shared/table-row-actions";
 import { EditIcon, TrashIcon } from "lucide-react";
 
 export function SupplierTable({ suppliers, onEdit, onDelete }) {
@@ -22,57 +23,48 @@ export function SupplierTable({ suppliers, onEdit, onDelete }) {
   }
 
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Nombre</TableHead>
-            <TableHead>RIF</TableHead>
-            <TableHead>Contacto</TableHead>
-            <TableHead>Teléfono</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead className="text-right">Acciones</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {suppliers.map((supplier) => (
-            <TableRow key={supplier.id}>
-              <TableCell className="font-medium">{supplier.name}</TableCell>
-              <TableCell className="text-muted-foreground font-mono text-sm">
-                {supplier.tax_id || "—"}
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                {supplier.contact_name || "—"}
-              </TableCell>
-              <TableCell className="text-muted-foreground font-mono text-sm">
-                {supplier.phone || "—"}
-              </TableCell>
-              <TableCell className="text-muted-foreground truncate max-w-xs">
-                {supplier.email || "—"}
-              </TableCell>
-              <TableCell className="text-right">
-                <div className="flex items-center justify-end gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onEdit(supplier)}
-                  >
-                    <EditIcon className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onDelete(supplier)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </Button>
-                </div>
-              </TableCell>
+    <Card>
+      <CardContent className="pt-6">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nombre</TableHead>
+              <TableHead>RIF</TableHead>
+              <TableHead>Contacto</TableHead>
+              <TableHead>Teléfono</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+          </TableHeader>
+          <TableBody>
+            {suppliers.map((supplier) => (
+              <TableRow key={supplier.id}>
+                <TableCell className="font-medium">{supplier.name}</TableCell>
+                <TableCell className="text-muted-foreground font-mono text-sm">
+                  {supplier.tax_id || "—"}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {supplier.contact_name || "—"}
+                </TableCell>
+                <TableCell className="text-muted-foreground font-mono text-sm">
+                  {supplier.phone || "—"}
+                </TableCell>
+                <TableCell className="text-muted-foreground truncate max-w-xs">
+                  {supplier.email || "—"}
+                </TableCell>
+                <TableCell className="text-right">
+                  <TableRowActions
+                    items={[
+                      { label: "Editar", icon: EditIcon, onClick: () => onEdit(supplier) },
+                      { label: "Eliminar", icon: TrashIcon, destructive: true, onClick: () => onDelete(supplier) },
+                    ]}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 }

@@ -308,3 +308,77 @@ ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_item_extras ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_status_history ENABLE ROW LEVEL SECURITY;
+
+-- ----------------------------------------------------------------------------
+-- ÓRDENES DESDE LA TIENDA ONLINE (channel = 'storefront')
+-- RF-08 checkout registrado + invitado: createOrder inserta orders/order_items/
+-- order_item_extras/order_status_history usando el cliente anon (con o sin sesión).
+-- Sin estas políticas, RLS bloquea TODO el checkout de la tienda.
+-- ----------------------------------------------------------------------------
+
+-- Cliente registrado e invitado insertan su propia orden de tienda.
+-- (El staff también inserta via orders_staff_insert definida arriba.)
+DROP POLICY IF EXISTS "orders_storefront_insert" ON orders;
+CREATE POLICY "orders_storefront_insert" ON orders
+  FOR INSERT WITH CHECK (channel = 'storefront');
+
+-- Lectura de órdenes storefront: necesaria para que el insert().select()
+-- devuelva la orden recién creada a un invitado sin sesión (auth.uid() IS NULL
+-- no matchea orders_customer_read) y para el tracking por id (RF-10).
+DROP POLICY IF EXISTS "orders_storefront_read" ON orders;
+CREATE POLICY "orders_storefront_read" ON orders
+  FOR SELECT USING (channel = 'storefront');
+
+DROP POLICY IF EXISTS "order_items_storefront_insert" ON order_items;
+CREATE POLICY "order_items_storefront_insert" ON order_items
+  FOR INSERT WITH CHECK (
+    EXISTS (SELECT 1 FROM orders WHERE orders.id = order_items.order_id AND orders.channel = 'storefront')
+  );
+
+DROP POLICY IF EXISTS "order_items_storefront_read" ON order_items;
+CREATE POLICY "order_items_storefront_read" ON order_items
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM orders WHERE orders.id = order_items.order_id AND orders.channel = 'storefront')
+  );
+
+DROP POLICY IF EXISTS "order_item_extras_storefront_insert" ON order_item_extras;
+CREATE POLICY "order_item_extras_storefront_insert" ON order_item_extras
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM order_items oi
+      JOIN orders o ON o.id = oi.order_id
+      WHERE oi.id = order_item_extras.order_item_id AND o.channel = 'storefront'
+    )
+  );
+
+DROP POLICY IF EXISTS "order_item_extras_storefront_read" ON order_item_extras;
+CREATE POLICY "order_item_extras_storefront_read" ON order_item_extras
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM order_items oi
+      JOIN orders o ON o.id = oi.order_id
+      WHERE oi.id = order_item_extras.order_item_id AND o.channel = 'storefront'
+    )
+  );
+
+-- ----------------------------------------------------------------------------
+-- Historial de estados (order_status_history)
+-- createOrder (staff y storefront) inserta el estado inicial 'pending' con el
+-- cliente anon; las funciones RPC insertan el resto. Faltaba política de INSERT.
+-- ----------------------------------------------------------------------------
+
+DROP POLICY IF EXISTS "order_status_history_staff_insert" ON order_status_history;
+CREATE POLICY "order_status_history_staff_insert" ON order_status_history
+  FOR INSERT WITH CHECK (auth_role() IN ('owner','admin','cajero','mesero','cocina','delivery'));
+
+DROP POLICY IF EXISTS "order_status_history_storefront_insert" ON order_status_history;
+CREATE POLICY "order_status_history_storefront_insert" ON order_status_history
+  FOR INSERT WITH CHECK (
+    EXISTS (SELECT 1 FROM orders WHERE orders.id = order_status_history.order_id AND orders.channel = 'storefront')
+  );
+
+DROP POLICY IF EXISTS "order_status_history_storefront_read" ON order_status_history;
+CREATE POLICY "order_status_history_storefront_read" ON order_status_history
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM orders WHERE orders.id = order_status_history.order_id AND orders.channel = 'storefront')
+  );
