@@ -46,6 +46,7 @@ import {
   ArrowLeftRightIcon,
   TrendingUpIcon,
   ReceiptIcon,
+  ShieldIcon,
 } from "lucide-react";
 import { isOwnerOrAdmin } from "@/features/auth/role-logic";
 
@@ -92,6 +93,7 @@ const NAV_GROUPS = [
       { title: "Inventario", href: "/admin/inventario", icon: PackageIcon },
       { title: "Usuarios", href: "/admin/users", icon: UsersIcon, adminOnly: true },
       { title: "Reportes", href: "/admin/reports", icon: BarChart3Icon },
+      { title: "Auditoría", href: "/admin/auditoria", icon: ShieldIcon, adminOnly: true },
     ],
   },
 ];

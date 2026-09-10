@@ -25,6 +25,7 @@ export async function middleware(request) {
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     {
       cookies: {
@@ -55,6 +56,7 @@ export async function middleware(request) {
     pathname.startsWith("/register") ||
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/reset-password");
+  const isResetPasswordPage = pathname.startsWith("/reset-password");
 
   const isAdminRoute = pathname.startsWith("/admin");
 
@@ -77,7 +79,7 @@ export async function middleware(request) {
   }
 
   // 2. Páginas de auth: redirigir usuarios ya autenticados a su destino
-  if (user && isAuthPage) {
+  if (user && isAuthPage && !isResetPasswordPage) {
     const role = await getProfileRole(user.id);
 
     const url = request.nextUrl.clone();

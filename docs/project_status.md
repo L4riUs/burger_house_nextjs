@@ -1,9 +1,9 @@
 # Burger House — Estado del Proyecto
 
-**Última actualización:** 4 de septiembre de 2026  
-**Fase actual:** Fase 10 (Dashboard, Reportes y Auditoría) — Pendiente  
-**Fases completadas:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9  
-**Fases pendientes:** 10, 11
+**Última actualización:** 7 de septiembre de 2026  
+**Fase actual:** Fase 11 (Pulido, rendimiento y caché) — Pendiente  
+**Fases completadas:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10  
+**Fases pendientes:** 11
 
 ---
 
@@ -21,7 +21,7 @@
 | **Fase 7** | ✅ **Completada** | Mesas, Reservas y Paquetes: restaurant_tables CRUD + vista mapa/tabla/tarjetas, migración SQL con trigger sync de estado de mesa (occupied/available) + RLS, reservation_packages CRUD (i18n JSONB, price VES vía BCV), reservations CRUD con manejo de exclusion constraint `excl_reservation_overlap` (error amigable), sentar/cancelar reserva, tests unitarios (overlap error + helpers). Registro de auditoría de la fase pendiente para Fase 10 |
 | **Fase 8** | ✅ **Completada** | Caja y Finanzas: payment_methods CRUD real (activo/inactivo), cash_sessions apertura/cierre con arqueo (expected vs counted en VES y USD, RB-03) + historial de cierres paginado, financial_transactions (sale/expense/capital_in/out/supplier_payment) con registro de movimiento, reporte capital (capital_in − capital_out), facturación automática al confirmar pago + listado facturas con detalle y notas de crédito (RB-04, RB-06), snapshot moneda y exchange_rate conforme RB-04. Lógica como funciones puras (`core.js`, `helpers.js`) + 14 tests (cash-close, financial-txn, invoice-credit). **Pendiente:** aplicar `docs/fix_rls_caja_phase8.sql` (RLS) en Supabase |
 | **Fase 9** | ✅ **Completada** | Modo offline POS: lib/offline-queue.js (IndexedDB via idb), detección online/offline (navigator.onLine + listeners), cola pedidos con client_ref/estado/timestamp, sincronización automática al reconectar + botón manual, idempotencia server-side por client_ref (RB-07), pantalla pendientes/conflictos (editar/reintentar/descartar), pedidos offline NO aparecen en panel general/cocina/delivery/caja hasta sincronizar, tests unitarios cola + idempotency + flujo completo |
-| **Fase 10** | ⏳ **Pendiente** | Dashboard, Reportes y Auditoría: KPIs agregados en Supabase (ventas, órdenes, top productos, ticket promedio, caja, alertas stock), export CSV/PDF reusando consultas, audit_log UI (filtros entidad/actor/fecha), completar auditoría faltante de fases anteriores |
+| **Fase 10** | ✅ **Completada** | Dashboard, Reportes y Auditoría: KPIs agregados vía RPC Supabase (ventas totales VES/USD, órdenes por estado, top productos/combos, ticket promedio, estado caja, alertas stock bajo reusando widget Fase 3), exportación CSV reusando mismas consultas del dashboard (ventas, inventario, caja/finanzas), pantalla auditoría owner/admin (filtros entidad/actor/acción/fecha, paginación, detalle diff JSON), triggers auditoría completados para Fases 7 y 8 (restaurant_tables, reservations, reservation_packages, cash_sessions, financial_transactions, invoices, payment_methods, orders status_change, inventory_movements), 14 tests unitarios agregación dashboard |
 | **Fase 11** | ⏳ **Pendiente** | Pulido y rendimiento: revisión RNF (caché catálogo, Zustand único, paginación, Realtime), auditoría RLS completa, validación Zod cliente+server, estructura por feature, inventario tests lógica crítica, performance queries + índices, validación alcance offline Fase 9 |
 
 ---
@@ -184,6 +184,16 @@ components/
 - [ ] Nota de crédito: generar desde factura (RB-04, RB-06)
 - [ ] Reporte Capital: muestra capital_in − capital_out con snapshot moneda/tasa (RB-04)
 
+### Dashboard, Reportes y Auditoría (Fase 10)
+- [ ] Dashboard: KPIs cargan en <2s con rango 30 días (agregación en BD vía RPC)
+- [ ] Ventas totales VES/USD, órdenes por estado, top 10 productos, top 5 combos, ticket promedio
+- [ ] Estado de caja: muestra sesión abierta/cerrada, arqueo tiempo real, diferencia
+- [ ] Alertas stock bajo: reutiliza StockAlertWidget Fase 3, muestra materias primas y productos retail
+- [ ] Filtros fecha: presets (hoy, ayer, 7d, 30d, mes actual, mes anterior, personalizado)
+- [ ] Exportar CSV: Ventas / Inventario / Caja → mismos números que en pantalla
+- [ ] Auditoría: lista paginada, filtros entidad/actor/acción/fecha, detalle diff JSON
+- [ ] Triggers auditoría: Fases 7 y 8 cubiertas (mesas, reservas, paquetes, caja, finanzas, facturas, métodos pago, órdenes, inventario)
+
 ---
 
 ## TODOs / Stubs Conocidos para Fases Futuras
@@ -202,6 +212,8 @@ components/
 | `features/inventario/actions.js` | `listInventoryMovements` sin soporte `search` → el buscador de MovementFilters no está conectado | Pendiente |
 | `features/caja/core.js` | Decidir si ventas cobradas suman al balance de Capital (hoy solo `capital_in − capital_out`) | Pendiente |
 | Suites `offline-queue`, `assign-delivery-concurrency`, `idempotency`, `inventory-deduction` | 4 suites de tests rotas preexistentes por refactor de imports/mocks (verificar y reparar) | Pendiente |
+| `lib/bcv.js` | Integración tasa de cambio BCV (stub; caja usa snapshot conservado) | Fase 11 |
+| `jspdf` / `jspdf-autotable` | Instalar para exportación PDF real de reportes | Fase 11 |
 
 ---
 
@@ -232,19 +244,41 @@ Ejecutar: `npm test`
 | `features/caja/__tests__/cash-close.test.js` | 8 casos: expected vs counted (VES/USD), diferencia, bloqueo de cierre, RB-03 |
 | `features/caja/__tests__/financial-txn.test.js` | 2 casos: snapshot moneda/tasa, reglas de transacción |
 | `features/caja/__tests__/invoice-credit.test.js` | 4 casos: facturación automática, notas de crédito (RB-04/RB-06) |
+| `features/dashboard/__tests__/dashboard-aggregation.test.js` | 14 casos: totales ventas, ticket promedio, órdenes por estado, top productos/combos, formateo moneda/números |
 
-> **Nota:** 4 suites heredadas están rotas por refactor de imports/mocks (`offline-queue`, `assign-delivery-concurrency`, `idempotency`, `inventory-deduction`). Los tests de las fases 0–8 pasan; caja tiene 14/14. Ver TODOs.
+> **Nota:** 4 suites heredadas están rotas por refactor de imports/mocks (`offline-queue`, `assign-delivery-concurrency`, `idempotency`, `inventory-deduction`). Los tests de las fases 0–8 pasan; caja tiene 14/14. Dashboard tiene 14/14. Ver TODOs.
 
 ---
 
-## Próximos Pasos (hacia Fase 10)
+## Resumen Fase 10 — Dashboard, Reportes y Auditoría (Completada)
+
+### Implementado
+- **Dashboard** (`features/dashboard/`): KPIs por rango de fecha con consultas agregadas en Supabase (RPC), NO trae histórico al cliente. Componentes: StatCard, TopProductsTable, OrdersByStatus, CashStatusWidget, StockAlertWidget (reutilizado Fase 3), DashboardFilters.
+- **Reportes/Exportación** (`features/reports/` + `lib/export-utils.js`): CSV para Ventas, Inventario, Caja/Finanzas reutilizando EXACTAMENTE las mismas funciones RPC del dashboard. PDF pendiente (requiere jsPDF).
+- **Auditoría** (`features/audit/`): Pantalla owner/admin con filtros entidad/actor/acción/fecha, paginación server-side, tabla con detalle diff JSON expandible.
+- **Triggers SQL** (`docs/phase10_audit_triggers.sql`): Auditoría completada para Fases 7 y 8 (restaurant_tables, reservations, reservation_packages, cash_sessions, financial_transactions, invoices, payment_methods, orders status_change, inventory_movements).
+- **Funciones RPC** (`docs/phase10_dashboard_rpcs.sql`): get_sales_kpis, get_orders_by_status, get_top_products_sold, get_top_combos_sold, get_cash_session_status, get_low_stock_alerts, get_sales_by_channel, get_sales_by_fulfillment, get_sales_report, get_inventory_report, get_cash_report + counts para paginación.
+- **Tests**: `features/dashboard/__tests__/dashboard-aggregation.test.js` (14 tests pasando).
+
+### Archivos SQL para aplicar en Supabase
+1. `docs/phase10_dashboard_rpcs.sql` — Funciones RPC para KPIs agregados
+2. `docs/phase10_audit_triggers.sql` — Triggers auditoría fases 7 y 8
+
+### Pendientes fase 10
+- Exportación PDF (instalar `jspdf` + `jspdf-autotable`)
+- Aplicar los 2 archivos SQL en Supabase
+
+---
+
+## Próximos Pasos (hacia Fase 11)
 
 1. **Aplicar SQL pendiente en Supabase**: `docs/fix_rls_caja_phase8.sql` (RLS de caja)
-2. **Decidir regla de negocio**: si las ventas cobradas suman al balance de Capital (hoy muestra solo capital_in − capital_out)
-3. **Conectar búsqueda por ítem** en `listInventoryMovements` (el buscador de MovementFilters aún no filtra)
-4. **Reparar 4 suites de tests rotas** (offline-queue, delivery concurrency, idempotency, inventory-deduction)
-5. **Registrar auditoría (audit_log) de fases 7 y 8** como parte del ciclo de Fase 10
-6. **Iniciar Fase 10**: KPIs agregados en Supabase, reportes CSV/PDF, audit_log UI, completar audit de fases anteriores
+2. **Aplicar SQL Fase 10**: `docs/phase10_dashboard_rpcs.sql` y `docs/phase10_audit_triggers.sql` en Supabase
+3. **Instalar dependencias PDF**: `npm install jspdf jspdf-autotable` para exportación PDF completa
+4. **Decidir regla de negocio**: si las ventas cobradas suman al balance de Capital (hoy muestra solo `capital_in − capital_out`)
+5. **Conectar búsqueda por ítem** en `listInventoryMovements` (el buscador de MovementFilters aún no filtra)
+6. **Reparar 4 suites de tests rotas** (offline-queue, delivery concurrency, idempotency, inventory-deduction)
+7. **Iniciar Fase 11**: Pulido, revisión RNF completa, auditoría RLS, performance queries + índices
 
 ---
 

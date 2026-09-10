@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -17,11 +17,19 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const recoveryError = searchParams.get("error");
+  const recoveryErrorMessage =
+    recoveryError === "recovery_code_missing"
+      ? "El enlace de recuperación está incompleto. Solicita uno nuevo."
+      : recoveryError === "recovery_code_invalid"
+        ? "El enlace de recuperación expiró o ya fue utilizado. Solicita uno nuevo."
+        : null;
 
   const form = useForm({
     resolver: zodResolver(resetPasswordSchema),
@@ -63,9 +71,9 @@ export default function ResetPasswordPage() {
               </p>
             </div>
 
-            {error && (
+            {(error || recoveryErrorMessage) && (
               <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
-                {error}
+                {error || recoveryErrorMessage}
               </div>
             )}
 
@@ -120,5 +128,13 @@ export default function ResetPasswordPage() {
         </form>
       </CardContent>
     </Card>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={null}>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }

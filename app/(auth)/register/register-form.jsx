@@ -27,7 +27,8 @@ export function RegisterForm() {
     },
   });
 
-  const onSubmit = async (data) => {
+  const onSubmit = async (e, data) => {
+    e.preventDefault();
     setLoading(true);
     setError(null);
     setSuccess(null);
@@ -94,7 +95,7 @@ export function RegisterForm() {
             </p>
           </div>
 
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} method="POST" noValidate className="space-y-6">
             {error && (
               <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-medium text-red-400 backdrop-blur-sm">
                 {error}

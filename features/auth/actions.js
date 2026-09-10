@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { forgotPasswordSchema, resetPasswordSchema } from "@/features/auth/schemas";
 
 export async function signIn(formData) {
   const supabase = await createClient();
@@ -65,10 +66,16 @@ export async function signOut() {
 }
 
 export async function requestPasswordReset(formData) {
-  const supabase = await createClient();
+  const parsed = forgotPasswordSchema.safeParse(formData);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Correo inválido" };
+  }
 
-  const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/verify?redirect_to=${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/reset-password`,
+  const supabase = await createClient();
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/$/, "");
+
+  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+    redirectTo: `${siteUrl}/auth/callback?next=/reset-password`,
   });
 
   if (error) {
@@ -79,10 +86,15 @@ export async function requestPasswordReset(formData) {
 }
 
 export async function updatePassword(formData) {
+  const parsed = resetPasswordSchema.safeParse(formData);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Contraseña inválida" };
+  }
+
   const supabase = await createClient();
 
   const { error } = await supabase.auth.updateUser({
-    password: formData.password,
+    password: parsed.data.password,
   });
 
   if (error) {
