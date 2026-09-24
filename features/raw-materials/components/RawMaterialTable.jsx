@@ -48,7 +48,7 @@ export function RawMaterialTable({ materials, onEdit, onDelete }) {
                 <TableRow key={material.id}>
                   <TableCell className="font-medium">{material.name}</TableCell>
                   <TableCell className="text-muted-foreground">
-                    {material.category?.name?.es || material.category?.name || "—"}
+                    {material.category?.name || "—"}
                   </TableCell>
                   <TableCell className="font-mono">
                     {material.unit?.name} ({material.unit?.abbreviation})

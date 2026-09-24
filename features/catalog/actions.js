@@ -3,6 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { getLocalizedField } from "@/lib/i18n";
 
+// getLocalizedField se usa para productos/combos (JSONB), no para categorías (ahora text)
+
 const PAGE_SIZE = 12;
 
 export async function listPublicProducts({

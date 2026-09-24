@@ -5,8 +5,8 @@ describe("Category Schemas", () => {
   describe("categorySchema", () => {
     it("acepta datos válidos completos", () => {
       const result = categorySchema.safeParse({
-        name: { es: "Bebidas", en: "Drinks" },
-        description: { es: "Bebidas frías y calientes", en: "Cold and hot drinks" },
+        name: "Bebidas",
+        description: "Bebidas frías y calientes",
         applies_to: "product",
         sort_order: 1,
       });
@@ -15,17 +15,17 @@ describe("Category Schemas", () => {
 
     it("acepta datos mínimos válidos", () => {
       const result = categorySchema.safeParse({
-        name: { es: "Carnes", en: "" },
-        description: { es: "", en: "" },
+        name: "Carnes",
+        description: "",
         applies_to: "raw_material",
         sort_order: 0,
       });
       expect(result.success).toBe(true);
     });
 
-    it("rechaza nombre en español vacío", () => {
+    it("rechaza nombre vacío", () => {
       const result = categorySchema.safeParse({
-        name: { es: "", en: "Drinks" },
+        name: "",
         applies_to: "product",
         sort_order: 0,
       });
@@ -37,7 +37,7 @@ describe("Category Schemas", () => {
 
     it("rechaza applies_to inválido", () => {
       const result = categorySchema.safeParse({
-        name: { es: "Test", en: "" },
+        name: "Test",
         applies_to: "invalid",
         sort_order: 0,
       });
@@ -46,7 +46,7 @@ describe("Category Schemas", () => {
 
     it("rechaza sort_order negativo", () => {
       const result = categorySchema.safeParse({
-        name: { es: "Test", en: "" },
+        name: "Test",
         applies_to: "product",
         sort_order: -1,
       });
@@ -55,21 +55,20 @@ describe("Category Schemas", () => {
 
     it("aplica valores por defecto", () => {
       const result = categorySchema.safeParse({
-        name: { es: "Test", en: "" },
+        name: "Test",
         applies_to: "product",
       });
       expect(result.success).toBe(true);
       expect(result.data.sort_order).toBe(0);
-      expect(result.data.description.es).toBe("");
-      expect(result.data.description.en).toBe("");
+      expect(result.data.description).toBe("");
     });
   });
 
   describe("categoryFormSchema", () => {
     it("valida igual que categorySchema", () => {
       const result = categoryFormSchema.safeParse({
-        name: { es: "Bebidas", en: "Drinks" },
-        description: { es: "Desc", en: "Desc" },
+        name: "Bebidas",
+        description: "Desc",
         applies_to: "raw_material",
         sort_order: 5,
       });
@@ -78,8 +77,8 @@ describe("Category Schemas", () => {
 
     it("requiere applies_to", () => {
       const result = categoryFormSchema.safeParse({
-        name: { es: "Test", en: "" },
-        description: { es: "", en: "" },
+        name: "Test",
+        description: "",
         applies_to: "",
         sort_order: 0,
       });

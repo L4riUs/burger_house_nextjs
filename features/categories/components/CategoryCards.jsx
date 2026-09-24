@@ -4,7 +4,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EditIcon, TrashIcon } from "lucide-react";
-import { getLocalizedField } from "@/lib/i18n";
 
 export function CategoryCards({ categories, onEdit, onDelete }) {
   if (!categories || categories.length === 0) {
@@ -22,10 +21,10 @@ export function CategoryCards({ categories, onEdit, onDelete }) {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div className="flex-1 min-w-0">
               <CardTitle className="text-sm font-medium truncate">
-                {getLocalizedField(category.name, "es")}
+                {category.name}
               </CardTitle>
               <p className="text-xs text-muted-foreground truncate">
-                {getLocalizedField(category.description, "es") || "Sin descripción"}
+                {category.description || "Sin descripción"}
               </p>
             </div>
             <Badge variant="secondary">

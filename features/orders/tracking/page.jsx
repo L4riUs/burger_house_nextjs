@@ -285,23 +285,35 @@ export default function OrderTrackingPage({ params }) {
                 <div key={item.id} className="flex items-start justify-between gap-4 p-3 bg-muted/50 rounded-lg">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">{item.product?.name || item.combo?.name || 'Item'}</span>
+                      {(() => {
+                        const raw = item.product?.name ?? item.combo?.name;
+                        const name = !raw ? 'Item' : typeof raw === 'object' ? (raw.es ?? raw.en ?? 'Item') : raw;
+                        return <span className="font-medium">{name}</span>;
+                      })()}
                       {item.combo_id && <Badge variant="secondary" className="text-xs">Combo</Badge>}
                     </div>
                     <p className="text-sm text-muted-foreground">Cant: {item.quantity} × {formatCurrency(item.unit_price_ves)}</p>
                     {item.order_item_extras && item.order_item_extras.length > 0 && (
                       <div className="mt-2 ml-4 space-y-1 border-l-2 border-border pl-2">
-                        {item.order_item_extras.map((extra) => (
-                          <div key={extra.id} className="text-sm text-muted-foreground flex items-center gap-2">
-                            <span>+ {extra.extra?.name || 'Extra'}</span>
-                            <span>×{extra.quantity}</span>
-                            <span className="font-medium">{formatCurrency(extra.unit_price_ves)}</span>
-                          </div>
-                        ))}
+                        {item.order_item_extras.map((extraItem) => {
+                          const rawName = extraItem.extra?.name;
+                          const extraName = !rawName ? 'Extra' : typeof rawName === 'object' ? (rawName.es ?? rawName.en ?? 'Extra') : rawName;
+                          return (
+                            <div key={extraItem.id} className="text-sm text-muted-foreground flex items-center gap-2">
+                              <span>
+                                + {extraName}
+                                {extraItem.quantity > 1 && <span className="ml-1 font-medium text-foreground">×{extraItem.quantity}</span>}
+                              </span>
+                              <span className="ml-auto font-medium">{formatCurrency(extraItem.unit_price_ves)}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                     {item.notes && (
-                      <p className="mt-1 text-xs text-muted-foreground italic">Nota: {item.notes}</p>
+                      <p className="mt-2 text-xs text-amber-600 dark:text-amber-400 italic flex items-center gap-1">
+                        <span>📝</span> {item.notes}
+                      </p>
                     )}
                   </div>
                   <div className="text-right font-medium whitespace-nowrap">

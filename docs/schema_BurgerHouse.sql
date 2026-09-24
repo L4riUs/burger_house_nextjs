@@ -123,8 +123,8 @@ create index idx_audit_log_actor on audit_log(actor_id);
 create table categories (
   id uuid primary key default gen_random_uuid(),
   applies_to category_target not null,
-  name jsonb not null,          -- {"es": "Bebidas", "en": "Drinks"}
-  description jsonb,
+  name text not null,
+  description text,
   sort_order int not null default 0,
   deleted_at timestamptz,
   created_at timestamptz not null default now(),

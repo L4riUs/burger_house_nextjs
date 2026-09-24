@@ -359,6 +359,46 @@ describe("POS Order Creation - createOrder", () => {
     expect(result.error).toContain("Debe adjuntar el comprobante de pago");
     expect(mockSupabase.table("order_payment_proofs").insert).not.toHaveBeenCalled();
   });
+
+  it("persiste notas individuales en cada order_item (producto y combo)", async () => {
+    setupStaffEnv();
+    const result = await createOrder(
+      baseFormData({
+        cart_items: [
+          {
+            type: "product",
+            product_id: U.product,
+            quantity: 1,
+            notes: "Sin cebolla, carne bien cocida",
+            extras: [],
+          },
+          {
+            type: "combo",
+            combo_id: U.combo,
+            quantity: 1,
+            notes: "Papas sin sal",
+          },
+        ],
+      })
+    );
+
+    expect(result.success).toBe("Orden creada correctamente");
+    const itemCalls = mockSupabase.table("order_items").insert.mock.calls.map((c) => c[0]);
+    expect(itemCalls).toContainEqual(
+      expect.objectContaining({
+        order_id: U.order,
+        product_id: U.product,
+        notes: "Sin cebolla, carne bien cocida",
+      })
+    );
+    expect(itemCalls).toContainEqual(
+      expect.objectContaining({
+        order_id: U.order,
+        combo_id: U.combo,
+        notes: "Papas sin sal",
+      })
+    );
+  });
 });
 
 describe("createOrderDraft (checkout) - transforma y reutiliza createOrder", () => {

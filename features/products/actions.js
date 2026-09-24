@@ -111,6 +111,7 @@ export async function getProduct(id) {
       recipe_items(
         id,
         quantity,
+        unit_id,
         raw_material:raw_materials(id, name, unit:units(id, name, abbreviation))
       )
     `
@@ -162,7 +163,7 @@ export async function listRawMaterialsForRecipe() {
     .select(`
       id,
       name,
-      unit:units(id, name, abbreviation)
+      unit:units(id, name, abbreviation, unit_type)
     `)
     .is("deleted_at", null)
     .order("name", { ascending: true });
@@ -172,6 +173,59 @@ export async function listRawMaterialsForRecipe() {
   }
 
   return { data: data || [] };
+}
+
+export async function listUnitsForRecipe() {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("units")
+    .select("id, name, abbreviation, unit_type, conversion_factor")
+    .is("deleted_at", null)
+    .order("unit_type", { ascending: true })
+    .order("conversion_factor", { ascending: true });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { data: data || [] };
+}
+
+async function validateRecipeUnits(supabase, recipeItems) {
+  const rawMaterialIds = recipeItems.map((item) => item.raw_material_id);
+  const unitIds = recipeItems.map((item) => item.unit_id);
+
+  const [{ data: rawMaterials, error: rawMaterialsError }, { data: units, error: unitsError }] =
+    await Promise.all([
+      supabase
+        .from("raw_materials")
+        .select("id, unit:units(unit_type)")
+        .in("id", rawMaterialIds)
+        .is("deleted_at", null),
+      supabase
+        .from("units")
+        .select("id, unit_type")
+        .in("id", unitIds)
+        .is("deleted_at", null),
+    ]);
+
+  if (rawMaterialsError || unitsError) {
+    return "No se pudieron validar las unidades de la receta";
+  }
+
+  const rawMaterialTypes = new Map(
+    rawMaterials.map((material) => [material.id, material.unit?.unit_type])
+  );
+  const recipeUnitTypes = new Map(units.map((unit) => [unit.id, unit.unit_type]));
+
+  for (const item of recipeItems) {
+    if (rawMaterialTypes.get(item.raw_material_id) !== recipeUnitTypes.get(item.unit_id)) {
+      return "La unidad de uso debe ser compatible con la unidad base de la materia prima";
+    }
+  }
+
+  return null;
 }
 
 export async function createProduct(formData) {
@@ -201,6 +255,13 @@ export async function createProduct(formData) {
   }
 
   const { recipe_items, ...productData } = parsed.data;
+
+  if (productData.product_type === "prepared") {
+    const unitValidationError = await validateRecipeUnits(supabase, recipe_items);
+    if (unitValidationError) {
+      return { error: unitValidationError };
+    }
+  }
 
   let price_ves = 0;
   try {
@@ -236,6 +297,7 @@ export async function createProduct(formData) {
       product_id: data.id,
       raw_material_id: item.raw_material_id,
       quantity: item.quantity,
+      unit_id: item.unit_id,
     }));
 
     const { error: recipeError } = await supabase
@@ -280,6 +342,13 @@ export async function updateProduct(id, formData) {
 
   const { recipe_items, ...productData } = parsed.data;
 
+  if (productData.product_type === "prepared") {
+    const unitValidationError = await validateRecipeUnits(supabase, recipe_items);
+    if (unitValidationError) {
+      return { error: unitValidationError };
+    }
+  }
+
   let price_ves = 0;
   try {
     const bcvRate = await getBcvRate();
@@ -319,6 +388,7 @@ export async function updateProduct(id, formData) {
         product_id: id,
         raw_material_id: item.raw_material_id,
         quantity: item.quantity,
+        unit_id: item.unit_id,
       }));
 
       const { error: recipeError } = await supabase

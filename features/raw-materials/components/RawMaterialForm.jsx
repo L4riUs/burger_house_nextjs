@@ -44,7 +44,7 @@ export function RawMaterialForm({
   const supplierId = watch("primary_supplier_id");
 
   // Compute display labels for selected values
-  const selectedCategoryLabel = categories.find(c => c.id === categoryId)?.name?.es || categories.find(c => c.id === categoryId)?.name || "";
+  const selectedCategoryLabel = categories.find(c => c.id === categoryId)?.name || "";
   const selectedUnitLabel = units.find(u => u.id === unitId)?.name || "";
   const selectedSupplierLabel = suppliers.find(s => s.id === supplierId)?.name || "";
 
@@ -97,7 +97,7 @@ export function RawMaterialForm({
               <SelectContent>
                 {categories.map((cat) => (
                   <SelectItem key={cat.id} value={cat.id}>
-                    {cat.name?.es || cat.name}
+                    {cat.name}
                   </SelectItem>
                 ))}
               </SelectContent>

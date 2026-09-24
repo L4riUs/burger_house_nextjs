@@ -193,7 +193,7 @@ export default function RawMaterialsPage() {
         <div className="flex items-center gap-2 flex-wrap">
           {categoryId && (
             <span className="text-sm text-muted-foreground">
-              Categoría: {categories.find(c => c.id === categoryId)?.name?.es || categoryId}
+              Categoría: {categories.find(c => c.id === categoryId)?.name || categoryId}
             </span>
           )}
           {lowStockOnly && (

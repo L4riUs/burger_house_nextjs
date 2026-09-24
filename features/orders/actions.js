@@ -319,15 +319,20 @@ export async function createOrder(formData) {
         .eq('id', item.product_id)
         .single();
 
+      const itemPayload = {
+        order_id: order.id,
+        product_id: item.product_id,
+        quantity: item.quantity,
+        unit_price_ves: product?.price_ves || 0,
+        unit_price_usd: product?.price_usd || 0,
+      };
+      if (item.notes) {
+        itemPayload.notes = item.notes;
+      }
+
       const { data: orderItem, error: itemError } = await supabase
         .from('order_items')
-        .insert({
-          order_id: order.id,
-          product_id: item.product_id,
-          quantity: item.quantity,
-          unit_price_ves: product?.price_ves || 0,
-          unit_price_usd: product?.price_usd || 0,
-        })
+        .insert(itemPayload)
         .select()
         .single();
 
@@ -344,7 +349,7 @@ export async function createOrder(formData) {
             .eq('id', extra.extra_id)
             .single();
 
-          await supabase
+          const { error: extraInsertError } = await supabase
             .from('order_item_extras')
             .insert({
               order_item_id: orderItem.id,
@@ -353,6 +358,10 @@ export async function createOrder(formData) {
               unit_price_ves: extraData?.price_ves || 0,
               unit_price_usd: extraData?.price_usd || 0,
             });
+
+          if (extraInsertError) {
+            console.error('[createOrder] Error al insertar order_item_extras:', extraInsertError);
+          }
         }
       }
     } else if (item.type === 'combo') {
@@ -362,15 +371,20 @@ export async function createOrder(formData) {
         .eq('id', item.combo_id)
         .single();
 
+      const comboPayload = {
+        order_id: order.id,
+        combo_id: item.combo_id,
+        quantity: item.quantity,
+        unit_price_ves: combo?.price_ves || 0,
+        unit_price_usd: combo?.price_usd || 0,
+      };
+      if (item.notes) {
+        comboPayload.notes = item.notes;
+      }
+
       await supabase
         .from('order_items')
-        .insert({
-          order_id: order.id,
-          combo_id: item.combo_id,
-          quantity: item.quantity,
-          unit_price_ves: combo?.price_ves || 0,
-          unit_price_usd: combo?.price_usd || 0,
-        });
+        .insert(comboPayload);
     }
   }
 
@@ -777,6 +791,7 @@ export async function listOrders(filters = {}) {
         quantity,
         unit_price_ves,
         unit_price_usd,
+        notes,
         product:products(id, name),
         combo:combos(id, name),
         order_item_extras(
@@ -1020,6 +1035,7 @@ export async function getOrderByNumber(orderNumber) {
         quantity,
         unit_price_ves,
         unit_price_usd,
+        notes,
         product:products(id, name),
         combo:combos(id, name),
         order_item_extras(

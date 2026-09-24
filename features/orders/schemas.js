@@ -21,6 +21,7 @@ export const orderItemProductSchema = z.object({
   type: z.literal('product'),
   product_id: z.string().uuid(),
   quantity: z.coerce.number().int().min(1),
+  notes: z.string().max(500).optional().nullable(),
   extras: z.array(orderItemExtraSchema).default([]),
 });
 
@@ -28,6 +29,7 @@ export const orderItemComboSchema = z.object({
   type: z.literal('combo'),
   combo_id: z.string().uuid(),
   quantity: z.coerce.number().int().min(1),
+  notes: z.string().max(500).optional().nullable(),
 });
 
 export const orderItemSchema = z.union([orderItemProductSchema, orderItemComboSchema]);

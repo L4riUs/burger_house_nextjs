@@ -193,6 +193,16 @@ export async function createProductExtra(formData) {
     return { error: "Error calculando precio en VES: " + err.message };
   }
 
+  let unit_id = null;
+  if (extraData.raw_material_id) {
+    const { data: rm } = await supabase
+      .from("raw_materials")
+      .select("unit_id")
+      .eq("id", extraData.raw_material_id)
+      .single();
+    unit_id = rm?.unit_id || null;
+  }
+
   const { data, error } = await supabase
     .from("product_extras")
     .insert({
@@ -201,6 +211,7 @@ export async function createProductExtra(formData) {
       price_ves: price_ves,
       raw_material_id: extraData.raw_material_id || null,
       raw_material_quantity: extraData.raw_material_quantity || null,
+      unit_id,
     })
     .select()
     .single();
@@ -264,6 +275,16 @@ export async function updateProductExtra(id, formData) {
     return { error: "Error calculando precio en VES: " + err.message };
   }
 
+  let unit_id = null;
+  if (extraData.raw_material_id) {
+    const { data: rm } = await supabase
+      .from("raw_materials")
+      .select("unit_id")
+      .eq("id", extraData.raw_material_id)
+      .single();
+    unit_id = rm?.unit_id || null;
+  }
+
   const { data, error } = await supabase
     .from("product_extras")
     .update({
@@ -272,6 +293,7 @@ export async function updateProductExtra(id, formData) {
       price_ves: price_ves,
       raw_material_id: extraData.raw_material_id || null,
       raw_material_quantity: extraData.raw_material_quantity || null,
+      unit_id,
     })
     .eq("id", id)
     .is("deleted_at", null)

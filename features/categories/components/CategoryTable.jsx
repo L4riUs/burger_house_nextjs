@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/table";
 import { TableRowActions } from "@/components/shared/table-row-actions";
 import { EditIcon, TrashIcon } from "lucide-react";
-import { getLocalizedField } from "@/lib/i18n";
 
 export function CategoryTable({ categories, onEdit, onDelete }) {
   if (!categories || categories.length === 0) {
@@ -40,10 +39,10 @@ export function CategoryTable({ categories, onEdit, onDelete }) {
             {categories.map((category) => (
               <TableRow key={category.id}>
                 <TableCell className="font-medium">
-                  {getLocalizedField(category.name, "es")}
+                  {category.name}
                 </TableCell>
                 <TableCell className="text-muted-foreground max-w-xs truncate">
-                  {getLocalizedField(category.description, "es") || "—"}
+                  {category.description || "—"}
                 </TableCell>
                 <TableCell>
                   <Badge variant="secondary">

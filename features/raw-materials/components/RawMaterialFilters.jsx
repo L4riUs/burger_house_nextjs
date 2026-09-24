@@ -55,7 +55,7 @@ export function RawMaterialFilters({ search, onSearch, categoryId, onCategoryIdC
             <SelectItem value="">Todas las categorías</SelectItem>
             {categories.map((cat) => (
               <SelectItem key={cat.id} value={cat.id}>
-                {cat.name?.es || cat.name}
+                {cat.name}
               </SelectItem>
             ))}
           </SelectContent>

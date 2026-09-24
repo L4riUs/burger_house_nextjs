@@ -86,7 +86,6 @@ export function MovementFilters({ filters, onFiltersChange, hasFilters }) {
         <Select
           value={filters.itemType || "all"}
           onValueChange={(v) => onFiltersChange({ ...filters, itemType: v, itemId: v === "all" ? "" : filters.itemId })}
-          items={ITEM_TYPE_OPTIONS}
         >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Todos los tipos de ítem">{selectedItemTypeLabel}</SelectValue>
@@ -103,7 +102,6 @@ export function MovementFilters({ filters, onFiltersChange, hasFilters }) {
         <Select
           value={filters.movementType || "all"}
           onValueChange={(v) => onFiltersChange({ ...filters, movementType: v })}
-          items={movementItems}
         >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Todos los tipos">{selectedMovementLabel}</SelectValue>
@@ -119,7 +117,6 @@ export function MovementFilters({ filters, onFiltersChange, hasFilters }) {
           <Select
             value={filters.itemId || ""}
             onValueChange={(v) => onFiltersChange({ ...filters, itemId: v })}
-            items={[{ value: "", label: "Todas las materias primas" }, ...rawMaterials.map((m) => ({ value: m.id, label: m.name }))]}
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Todas las materias primas">{selectedMaterialLabel || "Todas las materias primas"}</SelectValue>

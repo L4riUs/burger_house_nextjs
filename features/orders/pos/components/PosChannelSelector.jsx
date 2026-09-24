@@ -17,7 +17,7 @@ export function PosChannelSelector({ value, onChange }) {
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-sm font-medium">Canal de venta</span>
-      <Select value={value || "pos"} onValueChange={onChange} items={CHANNEL_ITEMS}>
+      <Select value={value || "pos"} onValueChange={onChange}>
         <SelectTrigger className="w-full">
           <SelectValue placeholder="Canal de venta" />
         </SelectTrigger>

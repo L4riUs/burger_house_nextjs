@@ -57,7 +57,7 @@ export function ProductTable({ products, onEdit, onDelete }) {
                   </Badge>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {product.category?.name?.es || product.category?.name || "—"}
+                  {product.category?.name || "—"}
                 </TableCell>
                 <TableCell className="font-mono">
                   ${Number(product.price_usd || 0).toFixed(2)}

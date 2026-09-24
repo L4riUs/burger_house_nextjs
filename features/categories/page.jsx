@@ -22,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LayoutGridIcon, ListIcon, PlusIcon, SearchIcon } from "lucide-react";
-import { getLocalizedField } from "@/lib/i18n";
 
 export default function CategoriesPage() {
   const { toastSuccess, toastWarning, toastError } = useToast();
@@ -246,7 +245,7 @@ export default function CategoriesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminar categoría</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Estás seguro de que quieres eliminar <strong>{deletingCategory ? getLocalizedField(deletingCategory.name, "es") : ""}</strong>?
+              ¿Estás seguro de que quieres eliminar <strong>{deletingCategory ? deletingCategory.name : ""}</strong>?
               Esta acción la moverá a la papelera.
               {deleteWarning && (
                 <p className="mt-2 text-sm text-destructive">{deleteWarning}</p>

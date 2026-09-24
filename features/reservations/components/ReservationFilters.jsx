@@ -76,7 +76,7 @@ export function ReservationFilters({ search, onSearch, status, onStatusChange, d
           />
         </div>
         <div className="w-full">
-          <Select items={STATUS_OPTIONS} value={status || "all"} onValueChange={(v) => onStatusChange(v === "all" ? "" : v)}>
+          <Select value={status || "all"} onValueChange={(v) => onStatusChange(v === "all" ? "" : v)}>
             <SelectTrigger>
               <SelectValue placeholder="Todos los estados" />
             </SelectTrigger>

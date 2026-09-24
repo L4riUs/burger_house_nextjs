@@ -1,6 +1,21 @@
 import { ALLOW_NEGATIVE_STOCK } from '@/lib/config';
 import { convertUnits } from '@/lib/unit-conversion';
 
+function safeConvertUnits(value, fromUnitId, toUnitId, units) {
+  if (!fromUnitId || !toUnitId || fromUnitId === toUnitId) {
+    return value;
+  }
+  const fromUnit = units?.find((u) => u.id === fromUnitId);
+  const toUnit = units?.find((u) => u.id === toUnitId);
+  if (!fromUnit || !toUnit || fromUnit.unit_type !== toUnit.unit_type) {
+    console.warn(
+      `[calculateInventoryMovements] Incompatibilidad de tipos de unidad: ${fromUnit?.unit_type || 'desconocida'} → ${toUnit?.unit_type || 'desconocida'}. Usando valor directo sin conversión.`
+    );
+    return value;
+  }
+  return convertUnits(value, fromUnitId, toUnitId, units);
+}
+
 export async function calculateInventoryMovements(orderItems, supabase) {
   const movements = [];
   const stockChecks = [];
@@ -33,10 +48,10 @@ export async function calculateInventoryMovements(orderItems, supabase) {
 
         for (const recipe of recipeItems || []) {
           // Convertir cantidad de receta (en unidad de receta) a unidad del material
-          const qty = convertUnits(
+          const qty = safeConvertUnits(
             Number(recipe.quantity) * Number(item.quantity),
             recipe.unit_id,
-            recipe.raw_material.unit_id,
+            recipe.raw_material?.unit_id,
             units
           );
           
@@ -45,7 +60,7 @@ export async function calculateInventoryMovements(orderItems, supabase) {
             raw_material_id: recipe.raw_material_id,
             movement_type: 'sale_out',
             quantity: qty,
-            unit_id: recipe.raw_material.unit_id, // unidad base del material
+            unit_id: recipe.raw_material?.unit_id, // unidad base del material
           });
 
           if (!ALLOW_NEGATIVE_STOCK) {
@@ -82,10 +97,10 @@ export async function calculateInventoryMovements(orderItems, supabase) {
             .single();
 
           if (extraData?.raw_material_id) {
-            const qty = convertUnits(
+            const qty = safeConvertUnits(
               Number(extraData.raw_material_quantity || 1) * Number(extra.quantity || 1) * Number(item.quantity),
-              extraData.unit_id,
-              extraData.raw_material.unit_id,
+              extraData.unit_id || extraData.raw_material?.unit_id,
+              extraData.raw_material?.unit_id,
               units
             );
             
@@ -94,7 +109,7 @@ export async function calculateInventoryMovements(orderItems, supabase) {
               raw_material_id: extraData.raw_material_id,
               movement_type: 'sale_out',
               quantity: qty,
-              unit_id: extraData.raw_material.unit_id,
+              unit_id: extraData.raw_material?.unit_id,
             });
 
             if (!ALLOW_NEGATIVE_STOCK) {

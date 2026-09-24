@@ -70,7 +70,7 @@ export function TableForm({ initialData, onSubmit, onCancel, isLoading }) {
           name="status"
           control={control}
           render={({ field }) => (
-            <Select value={field.value} items={TABLE_STATUS_OPTIONS} onValueChange={field.onChange} disabled={isLoading}>
+            <Select value={field.value} onValueChange={field.onChange} disabled={isLoading}>
               <SelectTrigger><SelectValue placeholder="Estado" /></SelectTrigger>
               <SelectContent>
                 {TABLE_STATUS_OPTIONS.map((opt) => (

@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { categoryFormSchema } from "../schemas";
-import { getLocalizedField } from "@/lib/i18n";
 
 const APPLIES_TO_OPTIONS = [
   { value: "product", label: "Producto" },
@@ -27,8 +26,8 @@ export function CategoryForm({ initialData, onSubmit, onCancel, isLoading }) {
   const methods = useForm({
     resolver: zodResolver(categoryFormSchema),
     defaultValues: {
-      name: { es: "", en: "" },
-      description: { es: "", en: "" },
+      name: "",
+      description: "",
       applies_to: "product",
       sort_order: 0,
       ...initialData,
@@ -40,8 +39,8 @@ export function CategoryForm({ initialData, onSubmit, onCancel, isLoading }) {
   useEffect(() => {
     if (initialData) {
       methods.reset({
-        name: initialData.name || { es: "", en: "" },
-        description: initialData.description || { es: "", en: "" },
+        name: initialData.name || "",
+        description: initialData.description || "",
         applies_to: initialData.applies_to || "product",
         sort_order: initialData.sort_order || 0,
       });
@@ -55,47 +54,26 @@ export function CategoryForm({ initialData, onSubmit, onCancel, isLoading }) {
   return (
     <form onSubmit={handleSubmit(handleSubmitForm)} className="space-y-6">
       <div className="space-y-4">
-        <Label htmlFor="name_es">Nombre (Español) *</Label>
+        <Label htmlFor="name">Nombre *</Label>
         <Input
-          id="name_es"
-          {...register("name.es")}
+          id="name"
+          {...register("name")}
           placeholder="Ej: Bebidas, Carnes, Verduras"
           disabled={isLoading}
         />
-        {errors.name?.es && (
-          <p className="text-sm text-destructive">{errors.name.es.message}</p>
+        {errors.name && (
+          <p className="text-sm text-destructive">{errors.name.message}</p>
         )}
-      </div>
-
-      <div className="space-y-4">
-        <Label htmlFor="name_en">Nombre (Inglés)</Label>
-        <Input
-          id="name_en"
-          {...register("name.en")}
-          placeholder="Ej: Drinks, Meats, Vegetables"
-          disabled={isLoading}
-        />
       </div>
 
       <Separator />
 
       <div className="space-y-4">
-        <Label htmlFor="description_es">Descripción (Español)</Label>
+        <Label htmlFor="description">Descripción</Label>
         <Textarea
-          id="description_es"
-          {...register("description.es")}
-          placeholder="Descripción opcional en español"
-          rows={3}
-          disabled={isLoading}
-        />
-      </div>
-
-      <div className="space-y-4">
-        <Label htmlFor="description_en">Descripción (Inglés)</Label>
-        <Textarea
-          id="description_en"
-          {...register("description.en")}
-          placeholder="Optional description in English"
+          id="description"
+          {...register("description")}
+          placeholder="Descripción opcional"
           rows={3}
           disabled={isLoading}
         />

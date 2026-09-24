@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { PlusIcon, TrashIcon } from "lucide-react";
 
-export function RecipeEditor({ fields, append, remove, rawMaterials, errors, isLoading, setValue, control }) {
+export function RecipeEditor({ fields, append, remove, rawMaterials, units = [], errors, isLoading, setValue, control }) {
   const getRawMaterialUnit = (rawMaterialId) => {
     const rm = rawMaterials.find((m) => String(m.id) === String(rawMaterialId));
     return rm?.unit?.abbreviation || "un";
@@ -22,6 +22,12 @@ export function RecipeEditor({ fields, append, remove, rawMaterials, errors, isL
   const getRawMaterialUnitType = (rawMaterialId) => {
     const rm = rawMaterials.find((m) => String(m.id) === String(rawMaterialId));
     return rm?.unit?.unit_type || "mass";
+  };
+
+  const getUnitAbbreviation = (unitId, rawMaterialId) => {
+    const selectedUnit = units.find((unit) => String(unit.id) === String(unitId));
+    if (selectedUnit) return selectedUnit.abbreviation;
+    return getRawMaterialUnit(rawMaterialId);
   };
 
   const recipeItemsValues = useWatch({
@@ -51,7 +57,7 @@ export function RecipeEditor({ fields, append, remove, rawMaterials, errors, isL
 
       {fields.length === 0 && (
         <p className="text-sm text-muted-foreground py-2">
-          No hay materias primas agregadas. Haga clic en "Agregar" para comenzar.
+          No hay materias primas agregadas. Haga clic en &quot;Agregar&quot; para comenzar.
         </p>
       )}
 
@@ -66,7 +72,13 @@ export function RecipeEditor({ fields, append, remove, rawMaterials, errors, isL
                 render={({ field: { value, onChange } }) => (
                   <Select
                     value={value ? String(value) : undefined}
-                    onValueChange={onChange}
+                    onValueChange={(rawMaterialId) => {
+                      onChange(rawMaterialId);
+                      const rawMaterial = rawMaterials.find(
+                        (material) => String(material.id) === String(rawMaterialId)
+                      );
+                      setValue(`recipe_items.${index}.unit_id`, rawMaterial?.unit?.id || "");
+                    }}
                     disabled={isLoading}
                     items={rawMaterials.map((rm) => ({
                       value: String(rm.id),
@@ -114,7 +126,10 @@ export function RecipeEditor({ fields, append, remove, rawMaterials, errors, isL
                       ref={ref}
                     />
                     <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {getRawMaterialUnit(recipeItemsValues[index]?.raw_material_id || field.raw_material_id)}
+                      {getUnitAbbreviation(
+                        recipeItemsValues[index]?.unit_id,
+                        recipeItemsValues[index]?.raw_material_id
+                      )}
                     </span>
                   </div>
                 )}
@@ -134,11 +149,19 @@ export function RecipeEditor({ fields, append, remove, rawMaterials, errors, isL
                 render={({ field: { value, onChange } }) => {
                   const rawMaterialId = recipeItemsValues[index]?.raw_material_id || field.raw_material_id;
                   const unitType = getRawMaterialUnitType(rawMaterialId);
+                  const rawMaterial = rawMaterials.find(
+                    (material) => String(material.id) === String(rawMaterialId)
+                  );
+                  const compatibleUnits = units.filter((unit) => unit.unit_type === unitType);
+                  const baseUnit = rawMaterial?.unit;
+                  const selectedUnit = units.find(
+                    (unit) => String(unit.id) === String(value)
+                  );
                   const allUnits = [...new Map(
-                    rawMaterials
-                      .filter((rm) => rm.unit?.unit_type === unitType)
-                      .map((rm) => [rm.unit?.id, rm.unit])
-                  ).values()].filter(Boolean);
+                    [...compatibleUnits, baseUnit, selectedUnit]
+                      .filter(Boolean)
+                      .map((unit) => [String(unit.id), unit])
+                  ).values()];
                   
                   return (
                     <Select

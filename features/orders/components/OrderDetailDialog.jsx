@@ -176,34 +176,58 @@ export function OrderDetailDialog({ order, onClose }) {
             </CardHeader>
             <CardContent className="pt-0">
               <div className="space-y-3">
-                {items.map((item, index) => (
-                  <div key={item.id} className="flex items-start justify-between gap-4 p-3 bg-muted/50 rounded-lg">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{item.product?.name || item.combo?.name || 'Item'}</span>
-                        {item.combo_id && <Badge variant="secondary" className="text-xs">Combo</Badge>}
-                      </div>
-                      <p className="text-sm text-muted-foreground">Cant: {item.quantity} × {formatCurrency(item.unit_price_ves)}</p>
-                      {item.order_item_extras && item.order_item_extras.length > 0 && (
-                        <div className="mt-2 ml-4 space-y-1 border-l-2 border-border pl-2">
-                          {item.order_item_extras.map((extra) => (
-                            <div key={extra.id} className="text-sm text-muted-foreground flex items-center gap-2">
-                              <span>+ {extra.extra?.name || 'Extra'}</span>
-                              <span>×{extra.quantity}</span>
-                              <span className="font-medium">{formatCurrency(extra.unit_price_ves)}</span>
-                            </div>
-                          ))}
+                {items.map((item, index) => {
+                  // product/combo name puede ser string o JSONB {es, en}
+                  const productName = (() => {
+                    const raw = item.product?.name ?? item.combo?.name;
+                    if (!raw) return 'Item';
+                    if (typeof raw === 'object') return raw.es ?? raw.en ?? 'Item';
+                    return raw;
+                  })();
+
+                  return (
+                    <div key={item.id} className="flex items-start justify-between gap-4 p-3 bg-muted/50 rounded-lg">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{productName}</span>
+                          {item.combo_id && <Badge variant="secondary" className="text-xs">Combo</Badge>}
                         </div>
-                      )}
-                      {item.notes && (
-                        <p className="mt-1 text-xs text-muted-foreground italic">Nota: {item.notes}</p>
-                      )}
+                        <p className="text-sm text-muted-foreground">Cant: {item.quantity} × {formatCurrency(item.unit_price_ves)}</p>
+                        {item.order_item_extras && item.order_item_extras.length > 0 && (
+                          <div className="mt-2 ml-4 space-y-1 border-l-2 border-border pl-2">
+                            {item.order_item_extras.map((extraItem) => {
+                              // extra.name es JSONB {es, en}
+                              const rawName = extraItem.extra?.name;
+                              const extraName = !rawName
+                                ? 'Extra'
+                                : typeof rawName === 'object'
+                                  ? (rawName.es ?? rawName.en ?? 'Extra')
+                                  : rawName;
+                              const qty = extraItem.quantity;
+                              return (
+                                <div key={extraItem.id} className="text-sm text-muted-foreground flex items-center gap-2">
+                                  <span>
+                                    + {extraName}
+                                    {qty > 1 && <span className="ml-1 font-medium text-foreground">×{qty}</span>}
+                                  </span>
+                                  <span className="ml-auto font-medium">{formatCurrency(extraItem.unit_price_ves)}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {item.notes && (
+                          <p className="mt-2 text-xs text-amber-600 dark:text-amber-400 italic flex items-center gap-1">
+                            <span>📝</span> {item.notes}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right font-medium whitespace-nowrap">
+                        {formatCurrency((item.unit_price_ves * item.quantity) + (item.order_item_extras?.reduce((sum, e) => sum + e.unit_price_ves * e.quantity, 0) || 0))}
+                      </div>
                     </div>
-                    <div className="text-right font-medium whitespace-nowrap">
-                      {formatCurrency((item.unit_price_ves * item.quantity) + (item.order_item_extras?.reduce((sum, e) => sum + e.unit_price_ves * e.quantity, 0) || 0))}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <div className="mt-4 flex justify-end gap-4 text-sm">
                 <span>Subtotal: {formatCurrency(order.subtotal_ves)}</span>

@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  allowedDevOrigins: ["10.124.244.197"],
   experimental: {
     serverActions: {
       allowedOrigins: [

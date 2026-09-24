@@ -9,6 +9,7 @@ import {
   deleteProduct,
   listCategoriesForProducts,
   listRawMaterialsForRecipe,
+  listUnitsForRecipe,
   getProduct,
 } from "./actions";
 import { ProductForm } from "./components/ProductForm";
@@ -46,6 +47,7 @@ export default function ProductsPage() {
   const [deletingProduct, setDeletingProduct] = useState(null);
   const [categories, setCategories] = useState([]);
   const [rawMaterials, setRawMaterials] = useState([]);
+  const [units, setUnits] = useState([]);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -74,12 +76,14 @@ export default function ProductsPage() {
 
   useEffect(() => {
     const fetchLookups = async () => {
-      const [catResult, rmResult] = await Promise.all([
+      const [catResult, rmResult, unitsResult] = await Promise.all([
         listCategoriesForProducts(),
         listRawMaterialsForRecipe(),
+        listUnitsForRecipe(),
       ]);
       if (!catResult.error) setCategories(catResult.data || []);
       if (!rmResult.error) setRawMaterials(rmResult.data || []);
+      if (!unitsResult.error) setUnits(unitsResult.data || []);
     };
     fetchLookups();
   }, []);
@@ -283,6 +287,7 @@ export default function ProductsPage() {
               isLoading={formLoading}
               categories={categories}
               rawMaterials={rawMaterials}
+              units={units}
             />
           </div>
         </div>

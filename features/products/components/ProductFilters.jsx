@@ -35,6 +35,13 @@ export function ProductFilters({
       <Select
         value={categoryId || "all"}
         onValueChange={(value) => onCategoryIdChange(value === "all" ? "" : value)}
+        items={[
+          { value: "all", label: "Todas las categorías" },
+          ...categories.map((cat) => ({
+            value: String(cat.id),
+            label: cat.name?.es || cat.name,
+          })),
+        ]}
       >
         <SelectTrigger className="w-full md:w-48">
           <SelectValue placeholder="Todas las categorías" />
@@ -42,7 +49,7 @@ export function ProductFilters({
         <SelectContent>
           <SelectItem value="all">Todas las categorías</SelectItem>
           {categories.map((cat) => (
-            <SelectItem key={cat.id} value={cat.id}>
+            <SelectItem key={cat.id} value={String(cat.id)}>
               {cat.name?.es || cat.name}
             </SelectItem>
           ))}
@@ -52,6 +59,11 @@ export function ProductFilters({
       <Select
         value={productType || "all"}
         onValueChange={(value) => onProductTypeChange(value === "all" ? "" : value)}
+        items={[
+          { value: "all", label: "Todos los tipos" },
+          { value: "prepared", label: "Preparados" },
+          { value: "retail", label: "Retail" },
+        ]}
       >
         <SelectTrigger className="w-full md:w-44">
           <SelectValue placeholder="Todos los tipos" />

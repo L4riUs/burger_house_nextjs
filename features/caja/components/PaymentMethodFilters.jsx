@@ -34,7 +34,6 @@ export function PaymentMethodFilters({ filters, onChange }) {
         <Select
           value={filters.currency || "all"}
           onValueChange={(v) => onChange({ ...filters, currency: v })}
-          items={CURRENCY_ITEMS}
         >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Todas">{currencyLabel}</SelectValue>
@@ -49,7 +48,6 @@ export function PaymentMethodFilters({ filters, onChange }) {
         <Select
           value={filters.status || "all"}
           onValueChange={(v) => onChange({ ...filters, status: v })}
-          items={STATUS_ITEMS}
         >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Todos">{statusLabel}</SelectValue>

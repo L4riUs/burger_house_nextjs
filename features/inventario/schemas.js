@@ -51,7 +51,7 @@ const uuidOrNull = z.preprocess(
 
 export const inventoryMovementFormSchema = inventoryMovementSchema.safeExtend({
   item_type: z.enum(['raw_material', 'product']),
-  raw_material_id: uuidOrNull.refine((val) => val !== null, { message: "Debe seleccionar una materia prima" }),
+  raw_material_id: uuidOrNull,
   product_id: uuidOrNull,
   movement_type: movementTypeEnum,
   quantity: z.coerce.number().positive("La cantidad debe ser mayor a 0"),
@@ -60,12 +60,19 @@ export const inventoryMovementFormSchema = inventoryMovementSchema.safeExtend({
   supplier_id: uuidOrNull.optional(),
   note: z.string().nullable().optional(),
 }).refine((data) => {
-  // Validar unit_id solo para product (retail) - raw_material lo deriva automáticamente
-  if (data.item_type === 'product' && !data.unit_id) {
+  if (data.item_type === 'raw_material' && !data.raw_material_id) {
     return false;
   }
   return true;
 }, {
-  message: "Debe seleccionar una unidad",
-  path: ["unit_id"],
+  message: "Debe seleccionar una materia prima",
+  path: ["raw_material_id"],
+}).refine((data) => {
+  if (data.item_type === 'product' && !data.product_id) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Debe seleccionar un producto retail",
+  path: ["product_id"],
 });

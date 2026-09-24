@@ -20,6 +20,13 @@ import { productFormSchema } from "../schemas";
 import { RecipeEditor } from "./RecipeEditor";
 import { ImageUploadField } from "@/components/shared/image-upload-field";
 
+function getProductText(value) {
+  if (value && typeof value === "object") {
+    return value.es || value.en || "";
+  }
+  return value || "";
+}
+
 export function ProductForm({
   initialData,
   onSubmit,
@@ -27,6 +34,7 @@ export function ProductForm({
   isLoading,
   categories = [],
   rawMaterials = [],
+  units = [],
 }) {
   const methods = useForm({
     resolver: zodResolver(productFormSchema),
@@ -42,6 +50,8 @@ export function ProductForm({
       min_stock: 0,
       recipe_items: [],
       ...initialData,
+      name: getProductText(initialData?.name),
+      description: getProductText(initialData?.description),
     },
   });
 
@@ -69,14 +79,15 @@ export function ProductForm({
         ? initialData.recipe_items.map((item) => ({
             raw_material_id: item.raw_material_id || item.raw_material?.id || "",
             quantity: item.quantity || 1,
+            unit_id: item.unit_id || item.unit?.id || item.raw_material?.unit?.id || "",
           }))
         : [];
 
       reset({
         product_type: initialData.product_type || "prepared",
         category_id: initialData.category_id || "",
-        name: initialData.name || "",
-        description: initialData.description || "",
+        name: getProductText(initialData.name),
+        description: getProductText(initialData.description),
         price_usd: initialData.price_usd || 0,
         image_url: initialData.image_url || "",
         is_active: initialData.is_active !== undefined ? initialData.is_active : true,
@@ -156,7 +167,7 @@ export function ProductForm({
               disabled={isLoading}
               items={categories.map((cat) => ({
                 value: String(cat.id),
-                label: cat.name?.es || cat.name,
+                label: String(cat.name),
               }))}
             >
               <SelectTrigger>
@@ -165,7 +176,7 @@ export function ProductForm({
               <SelectContent>
                 {categories.map((cat) => (
                   <SelectItem key={cat.id} value={String(cat.id)}>
-                    {cat.name?.es || cat.name}
+                    {cat.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -270,6 +281,7 @@ export function ProductForm({
             append={append}
             remove={remove}
             rawMaterials={rawMaterials}
+            units={units}
             errors={errors}
             isLoading={isLoading}
             setValue={setValue}

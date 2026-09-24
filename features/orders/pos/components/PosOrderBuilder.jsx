@@ -5,11 +5,76 @@ import { usePosStore, calculatePosItemTotal } from "../store";
 import { formatCurrency } from "@/lib/utils";
 import { getLocalizedField } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
-import { Plus, Minus, Trash2, Pencil, PlusCircle } from "lucide-react";
+import { Plus, Minus, Trash2, Pencil, PlusCircle, MessageSquare, MessageSquarePlus } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
+
+const getDisplayText = (value) => getLocalizedField(value, 'es') || value || '';
+
+function PosItemNotePopover({ item, onSave, children }) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState(item.notes || '');
+
+  const handleOpenChange = (next) => {
+    setOpen(next);
+    if (next) setNote(item.notes || '');
+  };
+
+  const handleSave = () => {
+    onSave(note.trim());
+    setOpen(false);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger render={children} />
+      <PopoverContent className="w-72 p-3" align="start">
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between">
+            <h5 className="text-xs font-semibold">Nota para cocina / preparación</h5>
+            {item.notes && (
+              <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">Activa</span>
+            )}
+          </div>
+          <Input
+            autoFocus
+            placeholder="Ej. Sin cebolla, término medio, etc."
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSave();
+              }
+            }}
+            className="h-8 text-xs"
+          />
+          <div className="flex gap-2 justify-end pt-1">
+            {item.notes && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => {
+                  onSave('');
+                  setOpen(false);
+                }}
+              >
+                Quitar nota
+              </Button>
+            )}
+            <Button type="button" size="sm" className="h-7 text-xs" onClick={handleSave}>
+              Guardar
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 function PosItemExtrasPopover({ item, onConfirm, children }) {
   const [open, setOpen] = useState(false);
@@ -45,10 +110,14 @@ function PosItemExtrasPopover({ item, onConfirm, children }) {
   };
 
   const updateExtraQty = (extraId, qty) => {
+    if (qty <= 0) {
+      setSelectedExtras((prev) => prev.filter((s) => s.extra?.id !== extraId));
+      return;
+    }
     setSelectedExtras((prev) =>
       prev.map((s) =>
         s.extra?.id === extraId
-          ? { ...s, quantity: Math.max(1, Math.min(10, qty)) }
+          ? { ...s, quantity: Math.min(10, qty) }
           : s
       )
     );
@@ -62,47 +131,95 @@ function PosItemExtrasPopover({ item, onConfirm, children }) {
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger render={children} />
-      <PopoverContent className="w-80 p-4" align="start">
-        <div className="space-y-4">
-          <h4 className="font-medium text-sm leading-none">Adicionales disponibles</h4>
+      <PopoverContent className="w-80 p-3" align="start">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="font-semibold text-sm">Adicionales</h4>
+            <span className="text-xs text-muted-foreground">
+              {selectedExtras.length} seleccionado{selectedExtras.length !== 1 ? 's' : ''}
+            </span>
+          </div>
           
           {loadingExtras ? (
-            <p className="text-sm text-muted-foreground">Cargando...</p>
+            <p className="text-xs text-muted-foreground py-2 text-center">Cargando...</p>
           ) : extras.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-1.5 max-h-64 overflow-y-auto pr-0.5">
               {extras.map((extra) => {
                 const extraName = getLocalizedField(extra.name) || extra.name;
                 const extraPrice = Number(extra.price_ves || 0);
                 const sel = selectedExtras.find((s) => s.extra?.id === extra.id);
+                const isSelected = Boolean(sel);
+                const qty = sel?.quantity || 1;
+
                 return (
-                  <div key={extra.id} className="flex items-center gap-3">
-                    <Checkbox
-                      checked={Boolean(sel)}
-                      onCheckedChange={() => toggleExtra(extra)}
-                    />
-                    <span className="flex-1 text-sm truncate">
-                      {extraName}{extraPrice > 0 && ` +${formatCurrency(extraPrice)}`}
-                    </span>
-                    {sel && (
-                      <Input
-                        type="number"
-                        min="1"
-                        max="10"
-                        value={sel.quantity || 1}
-                        onChange={(e) => updateExtraQty(extra.id, Number(e.target.value))}
-                        className="w-16 h-8 text-xs"
+                  <div
+                    key={extra.id}
+                    onClick={() => toggleExtra(extra)}
+                    className={`flex items-center justify-between p-2 rounded-md border transition-all cursor-pointer select-none ${
+                      isSelected
+                        ? "border-primary/50 bg-primary/5"
+                        : "hover:bg-accent/60 border-border"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleExtra(extra)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="pointer-events-none"
                       />
+                      <div className="min-w-0">
+                        <p className={`text-xs font-medium truncate ${isSelected ? "text-primary" : ""}`}>
+                          {extraName}
+                        </p>
+                        {extraPrice > 0 && (
+                          <p className="text-[11px] text-muted-foreground">
+                            +{formatCurrency(extraPrice)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {isSelected && (
+                      <div
+                        className="flex items-center gap-1 bg-background border rounded-md p-0.5 shadow-2xs ml-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                          onClick={() => updateExtraQty(extra.id, qty - 1)}
+                          title={qty === 1 ? "Quitar" : "Disminuir"}
+                        >
+                          <Minus className="h-2.5 w-2.5" />
+                        </Button>
+                        <span className="w-4 text-center text-xs font-bold tabular-nums">
+                          {qty}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                          onClick={() => updateExtraQty(extra.id, qty + 1)}
+                          title="Aumentar"
+                        >
+                          <Plus className="h-2.5 w-2.5" />
+                        </Button>
+                      </div>
                     )}
                   </div>
                 );
               })}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">Este producto no tiene adicionales.</p>
+            <p className="text-xs text-muted-foreground py-2 text-center">Este producto no tiene adicionales.</p>
           )}
 
-          <div className="pt-2">
-            <Button size="sm" className="w-full" onClick={handleConfirm}>
+          <div className="pt-1">
+            <Button size="sm" className="w-full h-8 text-xs" onClick={handleConfirm}>
               Guardar cambios
             </Button>
           </div>
@@ -118,6 +235,7 @@ export function PosOrderBuilder() {
     removeItem,
     updateQuantity,
     updateExtras,
+    updateItemNotes,
     getSubtotalVES,
   } = usePosStore();
 
@@ -143,14 +261,16 @@ export function PosOrderBuilder() {
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium truncate">{item.product?.name || item.combo?.name}</span>
+                  <span className="font-medium truncate">
+                    {getDisplayText(item.product?.name) || getDisplayText(item.combo?.name) || 'Producto'}
+                  </span>
                   {item.type === 'combo' && <span className="text-xs bg-secondary px-1.5 py-0.5 rounded">Combo</span>}
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {formatCurrency(item.type === 'combo' ? item.combo.price_ves : item.product.price_ves)} c/u
                 </p>
 
-                <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                   <Button
                     variant="outline"
                     size="icon"
@@ -179,7 +299,7 @@ export function PosOrderBuilder() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="ml-1 text-xs gap-1 text-primary hover:text-primary"
+                          className="text-xs gap-1 text-primary hover:text-primary h-7 px-2"
                           title="Editar adicionales"
                         >
                           <Pencil className="h-3 w-3" />
@@ -189,7 +309,7 @@ export function PosOrderBuilder() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="ml-1 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                          className="text-xs gap-1 text-muted-foreground hover:text-foreground h-7 px-2"
                           title="Agregar adicionales"
                         >
                           <PlusCircle className="h-3 w-3" />
@@ -199,15 +319,49 @@ export function PosOrderBuilder() {
                     </PosItemExtrasPopover>
                   )}
 
+                  {/* Botón de nota por ítem */}
+                  <PosItemNotePopover
+                    item={item}
+                    onSave={(notes) => updateItemNotes(item.id, notes)}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={`h-7 px-2 text-xs gap-1 ${
+                        item.notes
+                          ? 'text-amber-600 dark:text-amber-400 font-medium hover:text-amber-700'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                      title={item.notes ? "Editar nota de preparación" : "Agregar nota de preparación"}
+                    >
+                      {item.notes ? (
+                        <MessageSquare className="h-3 w-3" />
+                      ) : (
+                        <MessageSquarePlus className="h-3 w-3" />
+                      )}
+                      {item.notes ? 'Nota' : '+ Nota'}
+                    </Button>
+                  </PosItemNotePopover>
+
                   <Button
                     variant="ghost"
                     size="icon"
                     className="ml-auto h-7 w-7 text-destructive hover:text-destructive"
                     onClick={() => removeItem(item.id)}
+                    title="Quitar producto"
+                    aria-label="Quitar producto"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
+
+                {/* Nota del ítem si existe */}
+                {item.notes && (
+                  <div className="mt-2 text-xs text-amber-800 dark:text-amber-300 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20 flex items-start gap-1">
+                    <span className="font-semibold select-none">Nota:</span>
+                    <span className="italic break-words">{item.notes}</span>
+                  </div>
+                )}
 
                 {item.extras && item.extras.length > 0 && (
                   <div className="mt-2 ml-4 space-y-1 border-l-2 border-border pl-2">
@@ -221,7 +375,12 @@ export function PosOrderBuilder() {
                       const extraQty = extra.quantity || 1;
                       return (
                         <div key={extra.id} className="text-sm text-muted-foreground flex items-center justify-between gap-2">
-                          <span>+ {extraName} ×{extraQty}</span>
+                          <span>
+                            + {extraName}
+                            {extraQty > 1 && (
+                              <span className="font-semibold text-foreground ml-1">×{extraQty}</span>
+                            )}
+                          </span>
                           <span className="font-medium tabular-nums">
                             {formatCurrency(extraPrice * extraQty * item.quantity)}
                           </span>

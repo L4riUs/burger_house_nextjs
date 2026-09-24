@@ -33,7 +33,7 @@ export function TableFilters({
         />
       </div>
 
-      <Select items={STATUS_OPTIONS} value={status || "all"} onValueChange={(v) => onStatusChange(v === "all" ? "" : v)}>
+      <Select value={status || "all"} onValueChange={(v) => onStatusChange(v === "all" ? "" : v)}>
         <SelectTrigger className="w-full md:w-44">
           <SelectValue placeholder="Todos los estados" />
         </SelectTrigger>
@@ -44,7 +44,7 @@ export function TableFilters({
         </SelectContent>
       </Select>
 
-      <Select items={zoneOptions} value={zone || "all"} onValueChange={(v) => onZoneChange(v === "all" ? "" : v)}>
+      <Select value={zone || "all"} onValueChange={(v) => onZoneChange(v === "all" ? "" : v)}>
         <SelectTrigger className="w-full md:w-44">
           <SelectValue placeholder="Todas las zonas" />
         </SelectTrigger>

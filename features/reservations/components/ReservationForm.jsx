@@ -162,14 +162,6 @@ export function ReservationForm({
         <div className="space-y-4">
           <Label>Cliente *</Label>
           <Select
-            items={
-              profiles.length === 0
-                ? [{ value: NO_VALUE, label: "No hay clientes registrados" }]
-                : [
-                    { value: NO_VALUE, label: "Seleccione aquí" },
-                    ...profiles.map((p) => ({ value: p.id, label: p.full_name })),
-                  ]
-            }
             value={watch("profile_id") || NO_VALUE}
             onValueChange={(v) => setValue("profile_id", v === NO_VALUE ? "" : v, { shouldValidate: true })}
             disabled={isLoading}
@@ -223,10 +215,6 @@ export function ReservationForm({
           ) : (
             <Select
               value={selectedGuestId || NO_VALUE}
-              items={[
-                { value: NO_VALUE, label: "Seleccione aquí" },
-                ...availableGuests.map((g) => ({ value: g.id, label: `${g.full_name} (${g.phone || "sin teléfono"})` })),
-              ]}
               onValueChange={(v) => handleGuestSelect(v === NO_VALUE ? "" : v)}
               disabled={isLoading}
             >
@@ -250,10 +238,6 @@ export function ReservationForm({
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Select
-              items={[
-                { value: NO_VALUE, label: "Sin mesa específica" },
-                ...tables.map((t) => ({ value: t.id, label: `${t.name} (Cap: ${t.capacity})` })),
-              ]}
               value={watch("table_id") || NO_VALUE}
               onValueChange={(v) => setValue("table_id", v === NO_VALUE ? "" : v)}
               disabled={isLoading}
@@ -271,10 +255,6 @@ export function ReservationForm({
           </div>
           <div className="space-y-2">
             <Select
-              items={[
-                { value: NO_VALUE, label: "Sin paquete" },
-                ...packages.map((p) => ({ value: p.id, label: `${getLocalizedField(p.name, "es") || p.name} (Cap: ${p.capacity})` })),
-              ]}
               value={watch("package_id") || NO_VALUE}
               onValueChange={(v) => setValue("package_id", v === NO_VALUE ? "" : v)}
               disabled={isLoading}
@@ -336,10 +316,7 @@ export function ReservationForm({
               />
             </PopoverContent>
           </Popover>
-          <Select value={reservedTime || NO_VALUE} items={[
-              { value: NO_VALUE, label: "Seleccione aquí" },
-              ...TIME_SLOTS.map((slot) => ({ value: slot, label: slot })),
-            ]} onValueChange={(v) => { if (v !== NO_VALUE) handleTimeChange(v); }} disabled={isLoading}>
+          <Select value={reservedTime || NO_VALUE} onValueChange={(v) => { if (v !== NO_VALUE) handleTimeChange(v); }} disabled={isLoading}>
             <SelectTrigger className="w-full sm:w-[140px]">
               <SelectValue placeholder="Seleccione aquí" />
             </SelectTrigger>
@@ -357,7 +334,6 @@ export function ReservationForm({
       <div className="space-y-4">
         <Label htmlFor="status">Estado</Label>
         <Select
-          items={STATUS_OPTIONS}
           value={watch("status") || "pending"}
           onValueChange={(value) => setValue("status", value)}
           disabled={isLoading}

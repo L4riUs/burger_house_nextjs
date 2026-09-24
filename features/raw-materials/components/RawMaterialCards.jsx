@@ -29,7 +29,7 @@ export function RawMaterialCards({ materials, onEdit, onDelete }) {
                   {material.name}
                 </CardTitle>
                 <p className="text-xs text-muted-foreground truncate">
-                  {material.category?.name?.es || material.category?.name || "Sin categoría"}
+                  {material.category?.name || "Sin categoría"}
                 </p>
               </div>
               {isLowStock && (

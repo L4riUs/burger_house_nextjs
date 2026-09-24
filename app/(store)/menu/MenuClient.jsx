@@ -206,7 +206,7 @@ export function MenuClient({
             <SelectItem value="all">Todas las categorías</SelectItem>
             {categories.map((cat) => (
               <SelectItem key={cat.id} value={cat.id}>
-                {getLocalizedField(cat.name) || cat.name}
+                {cat.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -254,9 +254,7 @@ export function MenuClient({
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {getLocalizedField(product.category?.name) ||
-                      product.category?.name ||
-                      "—"}
+                    {product.category?.name || "—"}
                   </TableCell>
                   <TableCell>
                     ${Number(product.price_ves || 0).toFixed(2)} VES

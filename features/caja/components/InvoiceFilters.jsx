@@ -54,7 +54,6 @@ export function InvoiceFilters({ filters, onChange, typeOptions }) {
         <Select
           value={filters.type || "all"}
           onValueChange={(v) => onChange({ ...filters, type: v })}
-          items={[ALL, ...typeOptions]}
         >
           <SelectTrigger className="w-full">
             <SelectValue placeholder={ALL.label}>{selectedLabel}</SelectValue>

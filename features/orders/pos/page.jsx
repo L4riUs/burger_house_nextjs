@@ -7,6 +7,7 @@ import { PosOrderBuilder } from "./components/PosOrderBuilder";
 import { PosCustomerSelector } from "./components/PosCustomerSelector";
 import { PosChannelSelector } from "./components/PosChannelSelector";
 import { PosPaymentVerification } from "./components/PosPaymentVerification";
+import { PosProductExtrasModal } from "./components/PosProductExtrasModal";
 import { requiresPaymentProof, isPaymentProofComplete } from "../payment-verification";
 import { POS_PAYMENT_VERIFICATION } from "@/lib/config";
 import { Button } from "@/components/ui/button";
@@ -41,9 +42,10 @@ const FULFILLMENT_TYPES = [
 ];
 
 
+const getDisplayText = (value) => getLocalizedField(value, 'es') || value || '';
 
 function CatalogCard({ item, type, onAdd }) {
-  const title = item.name?.es || item.name;
+  const title = getDisplayText(item.name);
   const soldOut = item.is_sold_out;
   const comboItems = item.combo_items || [];
 
@@ -84,7 +86,7 @@ function CatalogCard({ item, type, onAdd }) {
           <ul className="mt-1 flex flex-col gap-0.5">
             {comboItems.slice(0, 4).map((ci) => (
               <li key={ci.id} className="text-xs text-muted-foreground leading-tight">
-                {ci.quantity}x {ci.product?.name?.es || ci.product?.name}
+                {ci.quantity}x {getDisplayText(ci.product?.name) || 'Producto'}
               </li>
             ))}
             {comboItems.length > 4 && (
@@ -141,12 +143,15 @@ export default function PosPage() {
   const [isSubmitting, startTransition] = useTransition();
   const { isOnline, wasOffline, checkConnectivity } = useOnlineStatus();
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [extrasModalOpen, setExtrasModalOpen] = useState(false);
+  const [selectedProductForExtras, setSelectedProductForExtras] = useState(null);
+  const [selectedComboForExtras, setSelectedComboForExtras] = useState(null);
 
   const { toastSuccess, toastError } = useToast();
 
   const categoryItems = [
     { value: 'all', label: 'Todas las categorías' },
-    ...categories.map((c) => ({ value: c.id, label: c.name?.es || c.name })),
+    ...categories.map((c) => ({ value: c.id, label: getDisplayText(c.name) || 'Sin categoría' })),
   ];
 
   const tableItems = tables.map((t) => ({
@@ -199,15 +204,48 @@ export default function PosPage() {
     }
   };
 
-  const filteredProducts = products.filter(p => {
+  const filteredProducts = products.filter((p) => {
     if (selectedCategory && p.category_id !== selectedCategory) return false;
-    if (searchQuery && !p.name?.es?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    const productName = getDisplayText(p.name).toLowerCase();
+    if (searchQuery && !productName.includes(searchQuery.toLowerCase())) return false;
     return !p.is_sold_out;
   });
 
-  // Agrega el producto directamente
-  const handleProductClick = (product) => {
-    addProduct(product, 1, []);
+  // Verifica si un producto tiene extras configurados
+  const checkProductHasExtras = async (productId) => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('product_extra_options')
+      .select('id')
+      .eq('product_id', productId)
+      .limit(1);
+    return !error && data && data.length > 0;
+  };
+
+  // Maneja clic en producto: abre modal si tiene extras, si no agrega directo
+  const handleProductClick = async (product) => {
+    const hasExtras = await checkProductHasExtras(product.id);
+    if (hasExtras) {
+      setSelectedProductForExtras(product);
+      setSelectedComboForExtras(null);
+      setExtrasModalOpen(true);
+    } else {
+      addProduct(product, 1, []);
+    }
+  };
+
+  // Maneja clic en combo: por ahora agrega directo (schema no tiene extras para combos)
+  const handleComboClick = (combo) => {
+    addCombo(combo, 1);
+  };
+
+  // Callback cuando se confirman los extras en el modal
+  const handleExtrasConfirmed = (extras, notes = '') => {
+    if (selectedProductForExtras) {
+      addProduct(selectedProductForExtras, 1, extras, notes);
+      setSelectedProductForExtras(null);
+    }
+    setExtrasModalOpen(false);
   };
 
   const handleSubmit = async () => {
@@ -394,7 +432,6 @@ export default function PosPage() {
                 <Select
                   value={selectedCategory || 'all'}
                   onValueChange={(v) => setSelectedCategory(v === 'all' ? null : v)}
-                  items={categoryItems}
                 >
                   <SelectTrigger className="w-full sm:w-56">
                     <SelectValue placeholder="Todas las categorías" />
@@ -402,7 +439,7 @@ export default function PosPage() {
                   <SelectContent>
                     <SelectItem value="all">Todas las categorías</SelectItem>
                     {categories.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name?.es || c.name}</SelectItem>
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -534,7 +571,6 @@ export default function PosPage() {
                     <Select
                       value={tableId}
                       onValueChange={setTableId}
-                      items={tableItems}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Seleccionar mesa" />
@@ -577,7 +613,6 @@ export default function PosPage() {
                 <Select
                   value={paymentMethodId}
                   onValueChange={setPaymentMethod}
-                  items={paymentItems}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Seleccionar método de pago" />
@@ -614,6 +649,14 @@ export default function PosPage() {
           </Card>
         </div>
       </div>
+
+      <PosProductExtrasModal
+        open={extrasModalOpen}
+        onOpenChange={setExtrasModalOpen}
+        product={selectedProductForExtras}
+        combo={selectedComboForExtras}
+        onConfirm={handleExtrasConfirmed}
+      />
     </div>
   );
 }

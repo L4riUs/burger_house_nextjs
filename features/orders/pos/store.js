@@ -17,12 +17,13 @@ const posStorage = createJSONStorage(() => ({
   },
 }));
 
-export function createPosOrderItem(product, quantity = 1, extras = []) {
+export function createPosOrderItem(product, quantity = 1, extras = [], notes = '') {
   return {
     id: `${product.id}-${Date.now()}`,
     type: "product",
     product: { ...product },
     quantity,
+    notes: (notes || '').trim(),
     extras: extras.map((ex) => ({
       ...ex,
       id: ex.id || ex.extra?.id || Date.now().toString(),
@@ -30,12 +31,13 @@ export function createPosOrderItem(product, quantity = 1, extras = []) {
   };
 }
 
-export function createPosComboItem(combo, quantity = 1) {
+export function createPosComboItem(combo, quantity = 1, notes = '') {
   return {
     id: `${combo.id}-${Date.now()}`,
     type: "combo",
     combo: { ...combo },
     quantity,
+    notes: (notes || '').trim(),
   };
 }
 
@@ -92,11 +94,13 @@ export const usePosStore = create(
       deliveryAddress: '',
       fulfillmentType: 'pickup',
 
-      addProduct: (product, quantity = 1, extras = []) => {
+      addProduct: (product, quantity = 1, extras = [], notes = '') => {
+        const trimmedNotes = (notes || '').trim();
         const existingItem = get().items.find(
           (item) =>
             item.type === "product" &&
             item.product.id === product.id &&
+            (item.notes || '') === trimmedNotes &&
             JSON.stringify(item.extras.map(e => ({ id: e.extra?.id || e.id, quantity: e.quantity })).sort()) ===
             JSON.stringify(extras.map(e => ({ id: e.extra?.id || e.id, quantity: e.quantity })).sort())
         );
@@ -110,16 +114,17 @@ export const usePosStore = create(
             ),
           }));
         } else {
-          const newItem = createPosOrderItem(product, quantity, extras);
+          const newItem = createPosOrderItem(product, quantity, extras, trimmedNotes);
           set((state) => ({
             items: [...state.items, newItem],
           }));
         }
       },
 
-      addCombo: (combo, quantity = 1) => {
+      addCombo: (combo, quantity = 1, notes = '') => {
+        const trimmedNotes = (notes || '').trim();
         const existingItem = get().items.find(
-          (item) => item.type === "combo" && item.combo.id === combo.id
+          (item) => item.type === "combo" && item.combo.id === combo.id && (item.notes || '') === trimmedNotes
         );
 
         if (existingItem) {
@@ -131,7 +136,7 @@ export const usePosStore = create(
             ),
           }));
         } else {
-          const newItem = createPosComboItem(combo, quantity);
+          const newItem = createPosComboItem(combo, quantity, trimmedNotes);
           set((state) => ({
             items: [...state.items, newItem],
           }));
@@ -161,6 +166,16 @@ export const usePosStore = create(
           items: state.items.map((item) =>
             item.id === itemId
               ? { ...item, extras: extras.map((ex) => ({ ...ex, id: ex.id || ex.extra?.id || Date.now().toString() })) }
+              : item
+          ),
+        }));
+      },
+
+      updateItemNotes: (itemId, notes) => {
+        set((state) => ({
+          items: state.items.map((item) =>
+            item.id === itemId
+              ? { ...item, notes: (notes || '').trim() }
               : item
           ),
         }));
@@ -210,12 +225,14 @@ export const usePosStore = create(
               type: 'combo',
               combo_id: item.combo.id,
               quantity: item.quantity,
+              notes: item.notes || null,
             };
           }
           return {
             type: 'product',
             product_id: item.product.id,
             quantity: item.quantity,
+            notes: item.notes || null,
             extras: item.extras.map(ex => ({
               extra_id: ex.extra?.id || ex.id,
               quantity: ex.quantity,

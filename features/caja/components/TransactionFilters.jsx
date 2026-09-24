@@ -44,7 +44,7 @@ export function TransactionFilters({ filters, onChange, typeOptions, placeholder
   return (
     <div className="bg-card border rounded-lg p-4 space-y-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Select value={filters.txn_type || "all"} onValueChange={(v) => onChange({ ...filters, txn_type: v })} items={[{ value: "all", label: placeholder }, ...typeOptions]}>
+        <Select value={filters.txn_type || "all"} onValueChange={(v) => onChange({ ...filters, txn_type: v })}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder={placeholder}>{selectedLabel}</SelectValue>
           </SelectTrigger>

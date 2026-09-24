@@ -159,7 +159,6 @@ export default function KardexPage() {
           <Select
             value={itemType}
             onValueChange={handleItemTypeChange}
-            items={ITEM_TYPE_OPTIONS}
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Tipo de ítem">{selectedItemTypeLabel}</SelectValue>
@@ -176,7 +175,6 @@ export default function KardexPage() {
           <Select
             value={itemId || undefined}
             onValueChange={handleItemIdChange}
-            items={itemOptions}
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Selecciona un ítem">{selectedItemLabel || ""}</SelectValue>

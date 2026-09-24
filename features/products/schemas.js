@@ -3,6 +3,7 @@ import { z } from "zod";
 const recipeItemSchema = z.object({
   raw_material_id: z.string().uuid("Materia prima inválida"),
   quantity: z.coerce.number().positive("La cantidad debe ser mayor a 0"),
+  unit_id: z.string().uuid("Unidad inválida"),
 });
 
 export const productSchema = z.object({
