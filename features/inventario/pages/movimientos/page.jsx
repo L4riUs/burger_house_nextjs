@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter, useSearchParams } from "next/navigation";
-import { listInventoryMovements, createInventoryMovement, listRawMaterialsForMovement, listProductsForMovement, listSuppliersForMovement } from "../../actions";
-import { MovementForm } from "../../components/MovementForm";
+import { listInventoryMovements, createInventoryMovementBatch, listRawMaterialsForMovement, listProductsForMovement, listSuppliersForMovement } from "../../actions";
+import { MovementBatchForm } from "../../components/MovementBatchForm";
 import { MovementTable } from "../../components/MovementTable";
 import { MovementFilters } from "../../components/MovementFilters";
 import { StockAlertWidget } from "../../components/StockAlertWidget";
@@ -18,6 +18,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PaginationControl } from "@/components/shared/pagination-control";
@@ -33,6 +40,7 @@ export default function MovimientosPage() {
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [filters, setFilters] = useState({
     search: searchParams.get("search") || "",
     itemType: searchParams.get("item_type") || "all",
@@ -120,9 +128,9 @@ export default function MovimientosPage() {
     setPage(1);
   };
 
-  const handleFormSubmit = async (data) => {
+  const handleFormSubmit = async (items) => {
     setFormLoading(true);
-    const result = await createInventoryMovement(data);
+    const result = await createInventoryMovementBatch(items);
     setFormLoading(false);
 
     if (result.error) {
@@ -136,7 +144,12 @@ export default function MovimientosPage() {
   };
 
   const handleFormCancel = () => {
+    setConfirmCloseOpen(true);
+  };
+
+  const handleConfirmClose = () => {
     setFormOpen(false);
+    setConfirmCloseOpen(false);
   };
 
   const handleRefresh = () => {
@@ -204,22 +217,36 @@ export default function MovimientosPage() {
         </div>
       )}
 
-      {formOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-background w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-lg border p-6 shadow-lg">
-            <h2 className="text-xl font-bold mb-6">Registrar Movimiento de Inventario</h2>
-            <MovementForm
-              initialData={null}
-              onSubmit={handleFormSubmit}
-              onCancel={handleFormCancel}
-              isLoading={formLoading}
-              rawMaterials={rawMaterials}
-              products={products}
-              suppliers={suppliers}
-            />
-          </div>
-        </div>
-      )}
+      <Dialog open={formOpen} onOpenChange={setFormOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Registrar Movimientos de Inventario</DialogTitle>
+          </DialogHeader>
+          <MovementBatchForm
+            onSubmit={handleFormSubmit}
+            onCancel={handleFormCancel}
+            isLoading={formLoading}
+            rawMaterials={rawMaterials}
+            products={products}
+            suppliers={suppliers}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={confirmCloseOpen} onOpenChange={setConfirmCloseOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Descartar cambios?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Hay líneas de movimiento sin guardar. ¿Estás seguro de que quieres cerrar el formulario?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConfirmCloseOpen(false)}>Mantener abierto</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmClose}>Descartar y cerrar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -240,9 +240,9 @@ export default function PosPage() {
   };
 
   // Callback cuando se confirman los extras en el modal
-  const handleExtrasConfirmed = (extras, notes = '') => {
+  const handleExtrasConfirmed = (extras) => {
     if (selectedProductForExtras) {
-      addProduct(selectedProductForExtras, 1, extras, notes);
+      addProduct(selectedProductForExtras, 1, extras);
       setSelectedProductForExtras(null);
     }
     setExtrasModalOpen(false);

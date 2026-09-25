@@ -44,6 +44,10 @@ export const inventoryMovementSchema = z.object({
   path: ["supplier_id"],
 });
 
+export const inventoryMovementBatchSchema = z.object({
+  items: z.array(inventoryMovementSchema).min(1, "Debe haber al menos una línea de movimiento"),
+});
+
 const uuidOrNull = z.preprocess(
   (val) => (val === "" ? null : val),
   z.string().uuid().nullable()

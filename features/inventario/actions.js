@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { inventoryMovementSchema } from "./schemas";
+import { inventoryMovementSchema, inventoryMovementBatchSchema } from "./schemas";
 import { convertUnits, unitsAreCompatible } from "@/lib/unit-conversion";
+import { buildBatchInsertPayload } from "./lib/batch-utils";
 
 const PAGE_SIZE = 20;
 
@@ -276,6 +277,94 @@ export async function createInventoryMovement(formData) {
   revalidatePath("/admin/inventario/materias-primas");
   
   return { data, success: "Movimiento registrado correctamente" };
+}
+
+export async function createInventoryMovementBatch(items) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "No autenticado" };
+  }
+
+  const { data: actorProfile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (!actorProfile || !["owner", "admin", "cajero"].includes(actorProfile.role)) {
+    return { error: "No tienes permisos para registrar movimientos de inventario" };
+  }
+
+  const parsed = inventoryMovementBatchSchema.safeParse({ items });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const { data: units } = await supabase
+    .from('units')
+    .select('id, unit_type, conversion_factor, abbreviation');
+
+  const { data: rawMaterials } = await supabase
+    .from('raw_materials')
+    .select('id, name, unit_id, unit:units(id, unit_type, conversion_factor, abbreviation), min_stock')
+    .is("deleted_at", null);
+
+  let insertPayload;
+  try {
+    insertPayload = buildBatchInsertPayload(parsed.data.items, units || [], rawMaterials || []);
+  } catch (err) {
+    if (err.name === 'BatchValidationError') {
+      return { error: err.message };
+    }
+    console.error('[createInventoryMovementBatch] Error building payload:', err);
+    return { error: "Error al procesar el batch de movimientos" };
+  }
+
+  const insertData = insertPayload.map(item => ({
+    ...item,
+    performed_by: user.id,
+  }));
+
+  console.log('[createInventoryMovementBatch] Insertando batch:', insertData);
+
+  const { data, error } = await supabase
+    .from("inventory_movements")
+    .insert(insertData)
+    .select();
+
+  if (error) {
+    console.error('[createInventoryMovementBatch] Error insert:', error);
+    return { error: error.message };
+  }
+
+  console.log('[createInventoryMovementBatch] Movimientos guardados:', data);
+
+  const rawMaterialIds = [...new Set(
+    parsed.data.items
+      .filter(i => i.item_type === 'raw_material' && i.raw_material_id)
+      .map(i => i.raw_material_id)
+  )];
+
+  if (rawMaterialIds.length > 0) {
+    const { data: stockData, error: stockError } = await supabase
+      .from('current_stock')
+      .select('item_id, stock, unit_abbreviation')
+      .eq('item_type', 'raw_material')
+      .in('item_id', rawMaterialIds);
+
+    console.log('[createInventoryMovementBatch] Stock actual después de insertar:', { stockData, stockError });
+  }
+
+  revalidatePath("/admin/inventario/movimientos");
+  revalidatePath("/admin/inventario/kardex");
+  revalidatePath("/admin/inventario/materias-primas");
+
+  return { data, success: `${data.length} movimientos registrados correctamente` };
 }
 
 export async function listRawMaterialsForMovement() {

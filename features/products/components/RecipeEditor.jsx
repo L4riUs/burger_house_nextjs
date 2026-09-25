@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Combobox,
+  ComboboxTrigger,
+  ComboboxContent,
+  ComboboxItem,
+  ComboboxFilter,
+  ComboboxValue,
+} from "@/components/ui/combobox";
 import { PlusIcon, TrashIcon } from "lucide-react";
 
 export function RecipeEditor({ fields, append, remove, rawMaterials, units = [], errors, isLoading, setValue, control }) {
@@ -70,7 +71,7 @@ export function RecipeEditor({ fields, append, remove, rawMaterials, units = [],
                 name={`recipe_items.${index}.raw_material_id`}
                 control={control}
                 render={({ field: { value, onChange } }) => (
-                  <Select
+                  <Combobox
                     value={value ? String(value) : undefined}
                     onValueChange={(rawMaterialId) => {
                       onChange(rawMaterialId);
@@ -85,17 +86,18 @@ export function RecipeEditor({ fields, append, remove, rawMaterials, units = [],
                       label: `${rm.name} (${rm.unit?.abbreviation || "un"})`,
                     }))}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona materia prima" />
-                    </SelectTrigger>
-                    <SelectContent>
+                    <ComboboxTrigger>
+                      <ComboboxValue placeholder="Selecciona materia prima" />
+                    </ComboboxTrigger>
+                    <ComboboxContent>
+                      <ComboboxFilter />
                       {rawMaterials.map((rm) => (
-                        <SelectItem key={rm.id} value={String(rm.id)}>
+                        <ComboboxItem key={rm.id} value={String(rm.id)}>
                           {rm.name} ({rm.unit?.abbreviation || "un"})
-                        </SelectItem>
+                        </ComboboxItem>
                       ))}
-                    </SelectContent>
-                  </Select>
+                    </ComboboxContent>
+                  </Combobox>
                 )}
               />
               {errors?.recipe_items?.[index]?.raw_material_id && (
